@@ -5,13 +5,14 @@ from pathlib import Path
 from datetime import datetime
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QHBoxLayout,QVBoxLayout,
-    QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
+    QCheckBox,QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
 from storage import TaskStore, STATUSES
 from lobby import Lobby, DiscordError
 from channel_actions import ChannelActions
 from ai_assistant import request_plan, AIError
 from update_ui import UpdatePage
 from updates import UpdateError
+from credentials import load_login,save_login,forget_login,CredentialError
 from version import VERSION
 from app_icon import icon,APP_ID
 
@@ -152,12 +153,23 @@ class MainWindow(QMainWindow):
         p=Page('Discord','Verbinde deinen Bot mit The Lobby und lade die aktuelle Serverübersicht.')
         self.discord_status=QLabel('Noch nicht geprüft.'); self.discord_status.setWordWrap(True); self.discord_status.setTextFormat(Qt.PlainText)
         p.layout.addWidget(self.discord_status)
-        p.layout.addWidget(QLabel('Bot-Token (bleibt für die Verbindung nur im Arbeitsspeicher)'))
+        p.layout.addWidget(QLabel('Bot-Token (optional geschützt unter Windows speichern)'))
         self.bot_token=QLineEdit(os.getenv('DISCORD_BOT_TOKEN',''))
         self.bot_token.setEchoMode(QLineEdit.Password); p.layout.addWidget(self.bot_token)
         p.layout.addWidget(QLabel('Server-ID'))
         self.guild_id=QLineEdit(os.getenv('DISCORD_GUILD_ID',''))
         self.guild_id.setPlaceholderText('17–20-stellige Discord-Server-ID'); p.layout.addWidget(self.guild_id)
+        self.remember_login=QCheckBox('Zugangsdaten auf diesem Windows-PC merken')
+        self.remember_login.setChecked(os.name=='nt');self.remember_login.setEnabled(os.name=='nt')
+        p.layout.addWidget(self.remember_login)
+        self.forget_login_button=QPushButton('Gespeicherte Zugangsdaten löschen')
+        self.forget_login_button.clicked.connect(self.forget_discord_login);p.layout.addWidget(self.forget_login_button)
+        try:
+            saved_token,saved_guild,remembered=load_login()
+            if saved_token:self.bot_token.setText(saved_token)
+            if saved_guild:self.guild_id.setText(saved_guild)
+            if remembered:self.remember_login.setChecked(True)
+        except (CredentialError,UpdateError,OSError) as exc:self.discord_status.setText(str(exc))
         self.connect_button=QPushButton('Verbindung prüfen und Übersicht laden'); self.connect_button.setObjectName('primary')
         self.connect_button.clicked.connect(self.load_discord)
         self.disconnect_button=QPushButton('Verbindung trennen'); self.disconnect_button.clicked.connect(self.disconnect_discord)
@@ -170,7 +182,7 @@ class MainWindow(QMainWindow):
         return p
 
     def set_discord_busy(self, busy):
-        for widget in (self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.forget_key_button):
+        for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.forget_key_button):
             widget.setEnabled(not busy)
         if hasattr(self,'updates'):
             self.updates.setEnabled(not busy)
@@ -193,6 +205,10 @@ class MainWindow(QMainWindow):
     def load_discord(self):
         if self.discord_worker is not None: return
         token=self.bot_token.text().strip()
+        if not token and self.remember_login.isChecked():
+            try:token=load_login()[0]
+            except (CredentialError,UpdateError,OSError) as exc:
+                QMessageBox.warning(self,'Zugangsdaten',str(exc));return
         if not token:
             if self.discord_client and self.discord_client.guild==self.guild_id.text().strip():
                 self.refresh_discord();return
@@ -200,16 +216,31 @@ class MainWindow(QMainWindow):
         try: client=Lobby(token,self.guild_id.text().strip(),writes=True,db=APP_DIR/'discord.sqlite3')
         except ValueError:
             QMessageBox.warning(self,'Konfiguration prüfen','Bot-Token und gültige Server-ID eingeben.');return
+        remember=self.remember_login.isChecked()
+        if not remember:
+            try:forget_login()
+            except (CredentialError,OSError) as exc:
+                QMessageBox.warning(self,'Zugangsdaten',str(exc));return
         self.disconnect_discord()
         self.bot_token.clear()
         self.discord_status.setText('Verbindung wird geprüft …')
         def connected(data):
             self.discord_client=client
             self.show_discord(data)
+            if remember:
+                try:save_login(client.token,client.guild)
+                except (CredentialError,OSError) as exc:QMessageBox.warning(self,'Speichern fehlgeschlagen',str(exc))
         def failed(message):
             client.token=''
             self.discord_failed(message)
         self.run_discord_job(client.overview,connected,failed)
+
+    def forget_discord_login(self):
+        try:forget_login()
+        except (CredentialError,OSError) as exc:
+            QMessageBox.warning(self,'Löschen fehlgeschlagen',str(exc));return
+        self.bot_token.clear();self.guild_id.clear();self.remember_login.setChecked(False)
+        QMessageBox.information(self,'Zugangsdaten','Gespeicherte Zugangsdaten gelöscht. Eine laufende Verbindung bleibt bis zum Trennen aktiv.')
 
     def refresh_discord(self):
         if not self.discord_client:return

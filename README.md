@@ -40,3 +40,11 @@ Keep this folder in place. Existing users must extract this full release once
 to place the new shortcut entry point in their permanent launcher folder.
 Updates continue to activate on the next launch. Startup errors appear in a
 dialog and diagnostics are retained in the user data directory startup.log.
+
+## Saved Discord credentials (0.1.8)
+
+On Windows, enable Remember credentials and connect successfully once. The bot
+token is saved in Windows Credential Manager; only the server ID and preference
+are saved in local settings. Credentials populate on the next launch. Use Delete
+saved credentials to remove both stored values. Disconnecting ends the active
+connection without deleting saved login details. No new dependencies required.
