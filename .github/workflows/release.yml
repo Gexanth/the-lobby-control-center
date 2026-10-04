@@ -1,0 +1,39 @@
+name: Publish Control Center update
+on:
+  push:
+    branches: [main]
+    paths: [version.py]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: control-center-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source and updater
+        run: |
+          python -m compileall -q .
+          python -m unittest discover -s tests -v
+      - name: Build update
+        shell: bash
+        run: |
+          VERSION=$(python -c "from version import VERSION; from updates import version; version(VERSION); print(VERSION)")
+          echo "RELEASE_TAG=v$VERSION" >> "$GITHUB_ENV"
+          python build_update.py --url "https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION/the-lobby-control-center-v$VERSION.zip"
+      - name: Publish version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release already exists; increase VERSION before publishing changes."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" dist/updates/* --target "$GITHUB_SHA" --title "The Lobby Control Center $RELEASE_TAG" --generate-notes --latest
