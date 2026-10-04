@@ -28,3 +28,15 @@ overwritten. Workflow dispatch can retry a failed publication.
 
 This pipeline distributes published changes; it does not develop new features.
 EXE updates and changes requiring new dependencies need a full installation.
+
+## Taskbar shortcut (Windows, 0.1.7)
+
+Extract the complete 0.1.7 release into a permanent folder and run
+`taskleisten_icon_einrichten.bat` once. It installs dependencies if needed and
+creates desktop and Start menu shortcuts with a purple Lobby icon.
+Search for The Lobby Control Center in Start, right-click and pin to taskbar.
+The shortcut uses pythonw and the existing update launcher without a console.
+Keep this folder in place. Existing users must extract this full release once
+to place the new shortcut entry point in their permanent launcher folder.
+Updates continue to activate on the next launch. Startup errors appear in a
+dialog and diagnostics are retained in the user data directory startup.log.

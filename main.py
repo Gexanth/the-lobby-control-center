@@ -13,6 +13,7 @@ from ai_assistant import request_plan, AIError
 from update_ui import UpdatePage
 from updates import UpdateError
 from version import VERSION
+from app_icon import icon,APP_ID
 
 APP_DIR = Path(os.environ.get('LOBBY_DATA_DIR',str(Path.home() / '.the_lobby_control_center')))
 APP_DIR.mkdir(exist_ok=True)
@@ -363,7 +364,11 @@ class MainWindow(QMainWindow):
         ''')
 
 if __name__=='__main__':
+    if os.name=='nt':
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
     app=QApplication(sys.argv)
+    app.setWindowIcon(icon())
     try: w=MainWindow()
     except (OSError, ValueError) as exc:
         QMessageBox.critical(None, 'Start fehlgeschlagen', f'Die Aufgabendatei konnte nicht geladen werden. Sie wird nicht überschrieben.\n{TASK_FILE}\n{exc}')
