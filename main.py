@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage('Vorgang läuft …' if busy else 'Bereit')
         if hasattr(self,'community'):
             self.community.refresh_connection_controls()
-            if busy:self.community.scan.setEnabled(False)
+            if busy:self.community.scan.setEnabled(False);self.community.poll_publish.setEnabled(False);self.community.poll_results.setEnabled(False);self.community.poll_schedule.setEnabled(False);self.community.poll_unschedule.setEnabled(False)
         for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.forget_key_button):
             widget.setEnabled(not busy)
         if hasattr(self,'updates'):

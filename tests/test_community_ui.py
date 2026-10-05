@@ -44,3 +44,70 @@ class CommunityAccessTests(unittest.TestCase):
         self.w.disconnect_discord();self.assertTrue(c.tabs.isEnabled());self.assertFalse(c.scan.isEnabled());self.assertEqual(c.nights.count(),1)
         client.guild='123456789012345679';self.w.discord_client=client;c.refresh_connection_controls();self.assertFalse(c.scan.isEnabled())
         c.sample();self.assertIn('verbinden',c.status.text())
+
+    def test_review_cancel_and_confirm_with_fake_discord(self):
+        from datetime import datetime,timezone,timedelta
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678';calls=[]
+        def transport(method,path,payload,reason):
+            calls.append(method)
+            if method=='GET':return {'guild_id':guild,'type':0}
+            return {'id':'123456789012345679','channel_id':channel}
+        self.w.discord_client=Lobby('test',guild,writes=True,db=self.root/'audit.db',transport=transport)
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'vote','type':0}],'roles':[]})
+        c.store.add_night(guild,'Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'Game A\nGame B');c.refresh();c.nights.setCurrentRow(0)
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.No):c.review_poll()
+        self.assertEqual(calls,[])
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.review_poll()
+        self.assertEqual(calls,['GET','POST'])
+        self.assertIn('Veröffentlicht',c.poll_status.text())
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous):c.review_poll()
+        self.assertEqual(calls,['GET','POST'])
+
+    def test_confirmed_schedule_records_without_sending(self):
+        from datetime import datetime,timezone,timedelta
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        def forbidden(*args):raise AssertionError('No requests during scheduling')
+        self.w.discord_client=Lobby('test',guild,writes=True,transport=forbidden)
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'vote','type':0}],'roles':[]})
+        c.store.add_night(guild,'Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'Game A\nGame B');c.refresh();c.nights.setCurrentRow(0)
+        c.poll_send_time.setText((datetime.now()+timedelta(hours=1)).strftime('%Y-%m-%d %H:%M'))
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.review_poll(True)
+        self.assertEqual(c.chosen_night()['poll_delivery']['state'],'scheduled')
+        self.assertFalse(c.poll_publish.isEnabled());self.assertTrue(c.poll_unschedule.isEnabled())
+        c.stop_scheduled_poll();self.assertEqual(c.chosen_night()['poll_delivery']['state'],'ready')
+
+    def test_due_dispatch_waits_for_connection_and_sends_once(self):
+        from datetime import datetime,timezone,timedelta
+        from lobby import Lobby
+        from polls import PollJournal,poll_spec
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678';calls=[]
+        def transport(method,path,payload,reason):
+            calls.append(method)
+            if method=='GET':return {'guild_id':guild,'type':0}
+            return {'id':'123456789012345679','channel_id':channel}
+        client=Lobby('test',guild,writes=True,db=self.root/'audit.db',transport=transport)
+        self.w.discord_client=client
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'vote','type':0}],'roles':[]})
+        c.store.add_night(guild,'Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'Game A\nGame B');c.refresh();c.nights.setCurrentRow(0)
+        n=c.chosen_night();spec=poll_spec(guild,n,channel,24,False)
+        PollJournal(c.store).schedule(spec,(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat())
+        n['poll_delivery']['send_at']=(datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat();c.store.save()
+        self.w.discord_client=None;c.dispatch_scheduled_poll();self.assertEqual(calls,[])
+        client.guild='123456789012345680';self.w.discord_client=client;c.dispatch_scheduled_poll();self.assertEqual(calls,[])
+        client.guild=guild;self.w.discord_worker=object();c.dispatch_scheduled_poll();self.assertEqual(calls,[])
+        self.w.discord_worker=None
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous):
+            c.dispatch_scheduled_poll();c.dispatch_scheduled_poll()
+        self.assertEqual(calls,['GET','POST']);self.assertEqual(n['poll_delivery']['state'],'sent')

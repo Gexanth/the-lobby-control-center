@@ -1,6 +1,8 @@
 from datetime import datetime,timedelta
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout
+from polls import poll_spec,PollJournal,send_poll,read_poll_results
+from copy import deepcopy
 from engagement import engagement_ideas
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
@@ -42,12 +44,26 @@ class CommunityPage(QWidget):
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.history_table.setEditTriggers(QTableWidget.NoEditTriggers);self.history_table.setAlternatingRowColors(True);a.addWidget(self.history_table)
         note=QLabel('¹ Messpunkte überlappen und dürfen nicht addiert werden. Es zählen nur zugängliche, noch vorhandene Nachrichten. Alte Messpunkte nutzen weiterhin die frühere 100-Nachrichten-Stichprobe.');note.setWordWrap(True);a.addWidget(note)
         n=page('Lobby Night')
-        info=QLabel('Lokaler Planer: erstellt einen Abstimmungstext und erinnert beim Termin, solange die App läuft. Verpasste Termine werden beim nächsten Verbinden angezeigt. Noch keine automatische Discord-Nachricht oder Abstimmung.');info.setWordWrap(True);n.addWidget(info)
+        info=QLabel('Lokaler Planer: erstellt einen Abstimmungstext und erinnert beim Termin, solange die App läuft. Verpasste Termine werden beim nächsten Verbinden angezeigt. Eine echte Discord-Abstimmung kann unten nach Vorschau veröffentlicht werden. Kein Discord-Event. Geplante Veröffentlichungen benötigen die laufende, verbundene App.');info.setWordWrap(True);n.addWidget(info)
         self.night_title=QLineEdit('Lobby Night');n.addWidget(self.night_title)
         self.night_time=QLineEdit((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.night_time.setPlaceholderText('Lokale PC-Zeit: JJJJ-MM-TT HH:MM');n.addWidget(self.night_time)
         self.options=QTextEdit();self.options.setPlaceholderText('Ein Spielvorschlag pro Zeile (2–10)');self.options.setMaximumHeight(100);n.addWidget(self.options)
         b=QPushButton('Termin und Vorschläge speichern');b.clicked.connect(self.add_night);n.addWidget(b)
-        self.nights=QListWidget();n.addWidget(self.nights)
+        self.nights=QListWidget();self.nights.itemSelectionChanged.connect(self.show_poll_status);self.nights.setMaximumHeight(120);n.addWidget(self.nights)
+        n.addWidget(QLabel('Discord-Abstimmung: Zielkanal und Laufzeit'))
+        poll_row=QHBoxLayout();self.poll_channel=QComboBox();poll_row.addWidget(self.poll_channel,2)
+        self.poll_hours=QComboBox()
+        for hours in (1,6,12,24,48,72,168):self.poll_hours.addItem(str(hours)+' Stunden',hours)
+        self.poll_hours.setCurrentIndex(3);poll_row.addWidget(self.poll_hours,1);n.addLayout(poll_row)
+        self.poll_multi=QCheckBox('Mehrere Spielvorschläge auswählbar');n.addWidget(self.poll_multi)
+        self.poll_publish=QPushButton('Abstimmung prüfen und veröffentlichen');self.poll_publish.clicked.connect(lambda:self.review_poll(False));n.addWidget(self.poll_publish)
+        self.poll_send_time=QLineEdit();self.poll_send_time.setPlaceholderText('Veröffentlichungszeit: JJJJ-MM-TT HH:MM (lokale PC-Zeit)');n.addWidget(self.poll_send_time)
+        self.poll_schedule=QPushButton('Veröffentlichung nach Vorschau planen');self.poll_schedule.clicked.connect(lambda:self.review_poll(True));n.addWidget(self.poll_schedule)
+        self.poll_unschedule=QPushButton('Geplante Veröffentlichung stoppen');self.poll_unschedule.clicked.connect(self.stop_scheduled_poll);n.addWidget(self.poll_unschedule)
+        self.poll_status=QLabel('Noch keine Abstimmung veröffentlicht.');self.poll_status.setWordWrap(True);self.poll_status.setTextFormat(Qt.PlainText);n.addWidget(self.poll_status)
+        self.poll_results=QPushButton('Ergebnisse der veröffentlichten Abstimmung laden');self.poll_results.clicked.connect(self.load_poll_results);n.addWidget(self.poll_results)
+        self.poll_link=QPushButton('Abstimmungslink kopieren');self.poll_link.clicked.connect(self.copy_poll_link);n.addWidget(self.poll_link)
+        self.poll_reset=QPushButton('Unklaren Versand nach manueller Discord-Prüfung freigeben');self.poll_reset.clicked.connect(self.reset_poll);n.addWidget(self.poll_reset)
         b=QPushButton('Abstimmungstext kopieren');b.clicked.connect(self.copy_poll);n.addWidget(b)
         b=QPushButton('Ausgewählten Termin absagen');b.clicked.connect(self.cancel_night);n.addWidget(b)
         c=page('Creator Hub')
@@ -73,7 +89,7 @@ class CommunityPage(QWidget):
         self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
         self.tabs.setEnabled(True)
-        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.start()
+        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
         self.bind(None)
     def bind(self,data):
         old_guild=self.guild_id;selected=self.channel.currentData();auto=self.auto_sample.isChecked()
@@ -94,6 +110,10 @@ class CommunityPage(QWidget):
             if old_guild==self.guild_id and index>=0:self.channel.setCurrentIndex(index)
             self.channel.blockSignals(False);self.channels=channels
             self.auto_sample.setChecked(auto and old_guild==self.guild_id and index>=0)
+        self.poll_channel.clear()
+        if data:
+            for c in data['channels']:
+                if c.get('type')==0:self.poll_channel.addItem(c['name'],c['id'])
         if data:
             self.status.setText('Community für '+data['name']);self.refresh();QTimer.singleShot(0,self.reminders)
         else:
@@ -109,6 +129,12 @@ class CommunityPage(QWidget):
         connected=bool(client and client.guild==self.guild_id)
         self.scan.setEnabled(connected and self.host.discord_worker is None and self.channel.currentData() is not None)
         self.auto_sample.setEnabled(connected and self.channel.currentData() is not None)
+        n=self.chosen_night();state=n.get('poll_delivery',{}).get('state') if n else None
+        self.poll_publish.setEnabled(connected and self.host.discord_worker is None and self.poll_channel.currentData() is not None and bool(n) and state not in ('sent','sending','uncertain','scheduled'))
+        self.poll_schedule.setEnabled(self.poll_publish.isEnabled());self.poll_unschedule.setVisible(state=='scheduled')
+        self.poll_unschedule.setEnabled(self.host.discord_worker is None)
+        self.poll_results.setEnabled(connected and self.host.discord_worker is None and state=='sent')
+        self.poll_link.setEnabled(state=='sent');self.poll_reset.setVisible(state in ('sending','uncertain'))
     def open_connection(self):
         if self.guild_id:self.host.guild_id.setText(self.guild_id)
         self.host.stack.setCurrentIndex(2)
@@ -140,7 +166,7 @@ class CommunityPage(QWidget):
         self.refresh_engagement()
         self.sync_list(self.nights,g['nights'],'_night_signature',lambda n:f"{n['title']} · {parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')} · {n['status']}")
         self.sync_list(self.creators,g['creators'],'_creator_signature',lambda c:f"{c['name']} · {c['status']}")
-        self.dashboard()
+        self.show_poll_status();self.refresh_connection_controls();self.dashboard()
     def channel_changed(self):
         if hasattr(self,'auto_sample'):self.auto_sample.setChecked(False)
         if hasattr(self,'history_table'):self.refresh_activity()
@@ -220,7 +246,88 @@ class CommunityPage(QWidget):
             from PySide6.QtWidgets import QApplication
             text=n['title']+' · '+parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')+'\nWas wollt ihr spielen?\n'+'\n'.join(f'{i+1}. {v}' for i,v in enumerate(n['options']))+'\nEigene Vorschläge sind willkommen!'
             QApplication.clipboard().setText(text);self.status.setText('Abstimmungstext kopiert. Noch nicht in Discord veröffentlicht.')
+    def show_poll_status(self):
+        if not hasattr(self,'poll_status'):return
+        n=self.chosen_night()
+        d=n.get('poll_delivery',{}) if n else {}
+        if d.get('state')=='sent':
+            self.poll_status.setText('Veröffentlicht: https://discord.com/channels/'+self.guild_id+'/'+d['channel']+'/'+d['message_id'])
+        elif d.get('state')=='scheduled':self.poll_status.setText('Veröffentlichung geplant: '+parse_time(d['send_at']).astimezone().strftime('%d.%m.%Y %H:%M')+' · App muss laufen und verbunden sein. Nach dem Lobby-Night-Termin wird nicht mehr versendet.')
+        elif d.get('state') in ('sending','uncertain'):self.poll_status.setText('Versand unklar. Zuerst in Discord prüfen; kein automatischer Neuversand.')
+        else:self.poll_status.setText('Noch nicht veröffentlicht. Bot benötigt Kanal ansehen, Nachrichten senden und Abstimmungen erstellen.')
+        self.refresh_connection_controls()
+    def review_poll(self,scheduled=False):
+        client=self.host.discord_client;n=self.chosen_night()
+        if self.host.discord_worker is not None:return
+        if not client or client.guild!=self.guild_id:self.status.setText('Zuerst den gewählten Server mit Discord verbinden.');return
+        if not n:self.status.setText('Zuerst einen gespeicherten Lobby-Night-Termin auswählen.');return
+        if n.get('poll_delivery',{}).get('state')=='scheduled':self.status.setText('Vor einer neuen Veröffentlichung den bestehenden Zeitplan stoppen.');return
+        try:spec=poll_spec(self.guild_id,deepcopy(n),self.poll_channel.currentData(),self.poll_hours.currentData(),self.poll_multi.isChecked())
+        except (CommunityError,ValueError,TypeError) as exc:self.status.setText(str(exc));return
+        text='Server: '+self.guild_id+'\nKanal: '+self.poll_channel.currentText()+'\n'+spec['payload']['content']+'\n\n'+spec['payload']['poll']['question']['text']+'\n'+'\n'.join(n['options'])+'\nLaufzeit: '+str(spec['payload']['poll']['duration'])+' Stunden\nMehrfachauswahl: '+('Ja' if self.poll_multi.isChecked() else 'Nein')+'\n\nJetzt diese echte Discord-Abstimmung veröffentlichen? Keine Rollen- oder Mitglieder-Pings.'
+        if scheduled:
+            try:
+                due=parse_time(self.poll_send_time.text().strip())
+                from datetime import timezone
+                if not datetime.now(timezone.utc)<due<parse_time(n['when']):raise CommunityError('Veröffentlichung muss in der Zukunft und vor der Lobby Night liegen.')
+            except (CommunityError,ValueError) as exc:self.status.setText(str(exc));return
+            text=text.replace('Jetzt diese echte Discord-Abstimmung veröffentlichen?', 'Diese Abstimmung automatisch am '+due.astimezone().strftime('%d.%m.%Y %H:%M')+' veröffentlichen? App muss laufen und verbunden sein.')
+        if QMessageBox.question(self,'Discord-Abstimmung veröffentlichen',text,QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
+        journal=PollJournal(self.store)
+        if scheduled:
+            if self.guard(lambda:journal.schedule(spec,self.poll_send_time.text().strip())):self.status.setText('Veröffentlichung geplant. App geöffnet und verbunden lassen.')
+            return
+        self.publish_approved_poll(spec,client)
+    def publish_approved_poll(self,spec,client):
+        journal=PollJournal(self.store)
+        try:journal.begin(spec)
+        except (CommunityError,OSError) as exc:self.status.setText('Versand nicht begonnen: '+str(exc));return
+        self.show_poll_status();self.status.setText('Discord-Abstimmung wird veröffentlicht …')
+        def sent(result):
+            try:journal.finish(spec,result)
+            except (CommunityError,OSError,ValueError) as exc:
+                self.status.setText('Discord hat geantwortet, aber Versandstatus konnte nicht bestätigt werden. In Discord prüfen; nicht erneut senden.');self.show_poll_status();return
+            self.status.setText('Discord-Abstimmung veröffentlicht.');self.refresh()
+        def failed(error):
+            try:journal.uncertain(spec)
+            except OSError:pass
+            self.status.setText(error+' Versand unklar: vor Wiederholung in Discord prüfen.');self.show_poll_status()
+        self.host.run_discord_job(lambda:send_poll(client,spec),sent,failed)
+    def reset_poll(self):
+        if self.host.discord_worker is not None:return
+        n=self.chosen_night()
+        if not n:return
+        if n.get('poll_delivery',{}).get('state') not in ('sending','uncertain'):self.status.setText('Kein unklarer Versand ausgewählt.');return
+        if QMessageBox.question(self,'Neuversand freigeben','Hast du im Zielkanal geprüft, dass diese Abstimmung NICHT veröffentlicht wurde? Eine falsche Freigabe kann doppelte Abstimmungen erzeugen.',QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
+        self.guard(lambda:PollJournal(self.store).reset_uncertain(self.guild_id,n['id']))
+
+    def stop_scheduled_poll(self):
+        if self.host.discord_worker is not None:return
+        n=self.chosen_night()
+        if n:self.guard(lambda:PollJournal(self.store).unschedule(self.guild_id,n['id']))
+    def dispatch_scheduled_poll(self):
+        client=self.host.discord_client
+        if not client or client.guild!=self.guild_id or self.host.discord_worker is not None:return
+        try:
+            due=PollJournal(self.store).due(self.guild_id)
+            if due:self.publish_approved_poll(due[0],client)
+        except (CommunityError,OSError,ValueError) as exc:self.status.setText('Geplante Veröffentlichung blockiert: '+str(exc))
+
+    def load_poll_results(self):
+        client=self.host.discord_client;n=self.chosen_night()
+        if self.host.discord_worker is not None:return
+        if not n or n.get('poll_delivery',{}).get('state')!='sent':self.poll_status.setText('Zuerst eine veröffentlichte Abstimmung auswählen.');return
+        if not client or client.guild!=self.guild_id:self.status.setText('Für Ergebnisse zuerst Discord verbinden.');return
+        delivery=deepcopy(n['poll_delivery']);guild=self.guild_id
+        self.host.run_discord_job(lambda:read_poll_results(client,guild,delivery),self.poll_status.setText,self.poll_status.setText)
+    def copy_poll_link(self):
+        from PySide6.QtWidgets import QApplication
+        n=self.chosen_night();d=n.get('poll_delivery',{}) if n else {}
+        if d.get('state')!='sent':self.status.setText('Noch kein bestätigter Abstimmungslink vorhanden.');return
+        QApplication.clipboard().setText('https://discord.com/channels/'+self.guild_id+'/'+d['channel']+'/'+d['message_id']);self.status.setText('Abstimmungslink kopiert.')
+
     def cancel_night(self):
+        if self.host.discord_worker is not None:return
         n=self.chosen_night()
         if n:self.guard(lambda:self.store.cancel_night(self.guild_id,n['id']))
     def reminders(self):

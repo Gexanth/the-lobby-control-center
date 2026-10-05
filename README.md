@@ -100,3 +100,28 @@ Community tabs remain navigable before connecting. Choose or enter the server ID
 and open local data for offline planning and stored records. Use the direct
 Discord connection button for new activity captures and server analysis.
 Disconnecting retains local data; live captures stay blocked until connected.
+
+## Native Lobby Night poll (0.3.0)
+
+Connect Discord, open Community → Lobby Night, save a future night and select it
+in the list. Choose a normal text channel, poll duration and multiselect. Click
+Review and publish, inspect the concrete preview and confirm to send. Bot needs
+View Channel, Send Messages and Send Polls. Read Message History is needed for
+result retrieval. Poll options must be unique and at most 55 characters each.
+Published links are copyable and results can be loaded on demand. No scheduled
+Discord event is created. Canceling a local night does not delete its poll.
+
+Uncertain sends are never retried automatically. Inspect the target channel
+before manually releasing a retry. Successful publication records the message
+ID. No member or role pings are generated. Local reminders require the app open.
+
+For automatic publication, enter a future local PC date/time before the night
+and choose Review and schedule. Confirm the exact preview. The approved payload
+and time survive restart; the app checks every minute while connected to the
+matching server. Keep the app open and connected. A missed publication can catch
+up before the night begins; canceled or expired nights never publish. Use Stop
+scheduled publication to cancel. This does not create a hosted/background
+service or automatic Discord reminder. Ambiguous attempts remain blocked.
+
+API references: https://docs.discord.com/developers/resources/poll and
+https://docs.discord.com/developers/resources/message#create-message

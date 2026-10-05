@@ -31,3 +31,7 @@ Bounded 24h paging up to 500 messages, early stop, explicit coverage state and t
 ## 0.2.4 progress — Activity System
 
 Explainable local participation suggestions with editable/copyable drafts implemented. Fresh confirmed capture required for activity-specific ideas; otherwise general ideas only. No automatic publishing or paid AI calls. Next: reviewed Discord voting for Lobby Night.
+
+## 0.3.0 progress — Lobby Night
+
+Native polls after explicit preview, durable delivery status, link copying and on-demand result reading implemented. No scheduled Discord events. Local cancellation does not remove a published poll. Unclear sends require manual verification; no background resending. Explicitly confirmed timed poll publication is implemented with persistent schedules, cancellation, a matching-server guard and no sends after the night begins. App must remain running and connected; missed publication can catch up only before the event. Scheduled Discord reminders remain pending. Next: Dashboard visibility and schedule recovery feedback, then Creator Hub.
