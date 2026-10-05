@@ -19,3 +19,7 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 5. Expanded AI recommendations with evidence and sample limitations.
 
 Keep the existing source-update protocol, dependencies, task data and credential storage compatible. Validate before publishing; report exact completed scope and remaining limits to the owner.
+
+## 0.2.2 progress
+
+Selected-channel history, last-24h counts within the sample, explicit sample-cap warning, bounded storage and improved save-error handling implemented. These are overlapping sample snapshots, not a complete measurement of server activity. Full historical collection and Discord voting remain pending.

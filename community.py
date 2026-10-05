@@ -1,6 +1,6 @@
 """Local community state and bounded activity aggregation without message content."""
-import uuid
-from datetime import datetime,timezone
+import uuid,copy
+from datetime import datetime,timezone,timedelta
 from urllib.parse import urlparse
 from updates import DATA,atomic_json,read_json
 
@@ -13,14 +13,15 @@ def parse_time(value):
     return d.astimezone(timezone.utc)
 
 def activity_sample(messages,channel_id,now=None):
-    now=now or utcnow();people=set();times=[];count=0
+    now=now or utcnow();people=set();recent_people=set();times=[];count=0;recent=0
     for m in messages:
         if m.get('bot') or not m.get('author_id'):continue
         try:t=parse_time(m['timestamp'])
         except (CommunityError,KeyError):continue
         if t>now:continue
         people.add(m['author_id']);times.append(t);count+=1
-    return {'channel_id':channel_id,'checked_at':now.isoformat(),'messages':count,'participants':len(people),'sample_size':len(messages),'oldest':min(times).isoformat() if times else None,'latest':max(times).isoformat() if times else None,'scope':'Letzte maximal 100 Nachrichten eines ausgewählten Kanals; keine vollständige Wochenaktivität.'}
+        if t>=now-timedelta(hours=24):recent+=1;recent_people.add(m['author_id'])
+    return {'channel_id':channel_id,'checked_at':now.isoformat(),'messages':count,'participants':len(people),'sample_size':len(messages),'messages_24h':recent,'participants_24h':len(recent_people),'limit_reached':len(messages)>=100,'oldest':min(times).isoformat() if times else None,'latest':max(times).isoformat() if times else None,'scope':'Letzte maximal 100 Nachrichten eines ausgewählten Kanals; keine vollständige Wochenaktivität.'}
 
 class CommunityStore:
     def __init__(self,root=DATA):
@@ -32,7 +33,21 @@ class CommunityStore:
         return self.data['guilds'].setdefault(guild,{'activity':{},'nights':[],'creators':[]})
     def save(self):atomic_json(self.path,self.data)
     def record_activity(self,guild,sample):
-        self.guild(guild)['activity'][sample['channel_id']]=sample;self.save()
+        g=self.guild(guild);before=copy.deepcopy(g)
+        g['activity'][sample['channel_id']]=sample
+        history=g.setdefault('activity_history',{}).setdefault(sample['channel_id'],[])
+        when=parse_time(sample['checked_at']);cutoff=when-timedelta(days=30)
+        history[:]=[x for x in history if parse_time(x['checked_at'])>=cutoff]
+        bucket=int(when.timestamp())//900
+        if history and int(parse_time(history[-1]['checked_at']).timestamp())//900==bucket:history[-1]=dict(sample)
+        else:history.append(dict(sample))
+        history[:]=history[-96:]
+        try:self.save()
+        except OSError:
+            self.data['guilds'][guild]=before;raise
+    def history(self,guild,channel):
+        g=self.guild(guild)
+        return g.get('activity_history',{}).get(channel,[])
     def add_night(self,guild,title,when,suggestions):
         if not 1<=len(title.strip())<=120:raise CommunityError('Titel mit 1–120 Zeichen eingeben.')
         due=parse_time(when)

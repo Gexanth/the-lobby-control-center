@@ -447,6 +447,9 @@ class MainWindow(QMainWindow):
         QTabWidget::pane { border:1px solid #293144; border-radius:8px; }
         QTabBar::tab { background:#141b29; padding:10px 13px; color:#aab4cb; }
         QTabBar::tab:selected { background:#292442; color:#ddd0ff; }
+        QTableWidget { background:#10151f; alternate-background-color:#192132; color:#eef2ff; gridline-color:#293144; border:1px solid #293144; }
+        QTableWidget::item:selected { background:#393058; color:white; }
+        QHeaderView::section { background:#171e2c; color:#cdd5e5; padding:8px; border:1px solid #293144; }
         QScrollArea { border:0; }
         QStatusBar { background:#10141d; color:#aab4cb; }
         QProgressBar { border:0; background:#1a2030; max-height:6px; }

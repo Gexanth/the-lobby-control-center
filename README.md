@@ -67,3 +67,11 @@ Ctrl+8 navigate between pages. Scrollable pages accommodate smaller windows.
 Status bar shows the connected server and background operations. Activity polling
 survives same-server overview refreshes; unchanged Creator/Night lists preserve
 selection and are not rebuilt. Server metrics are snapshots, not live streaming.
+
+## Activity history (0.2.2)
+
+Community → Activity shows the selected channel and up to 96 historical samples.
+Repeated checks within 15 minutes update one point. Old points expire after 30
+days when a new sample is recorded. The 24h counts apply only to the latest 100
+messages read and exclude bots. At the 100-message cap, counts may be incomplete.
+History points overlap: do not sum them. Existing local data remains compatible.

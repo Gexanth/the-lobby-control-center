@@ -1,9 +1,9 @@
-# Development status — 0.2.1
+# Development status — 0.2.2
 
-UI and efficiency update: live overview cards, dashboard shortcuts, active sidebar state, Ctrl+1–8 navigation, scrollable pages for smaller windows, consistent button/tab styling, connection status and background-job indicator.
+Activity page now shows selected-channel metrics, a bounded history table and readable coverage limits. Each sample includes last-24-hour human message/participant counts within the latest 100 messages; hitting 100 flags potentially incomplete coverage. Snapshots overlap and must not be added together.
 
-Fix: same-server overview refresh preserves the selected activity channel and optional polling. Server switch/disconnect resets polling. Community lists only rebuild when their data changes; selection is retained. Activity view shows channel names and local date/time instead of raw IDs/UTC strings.
+History is compatible with existing format-1 data. Retain at most 96 snapshots per channel and discard snapshots older than 30 days when recording; repeated samples in one 15-minute bucket replace that bucket's snapshot. No message content or author IDs are persisted. Failed history writes restore the previous in-memory server record and show an error instead of a success notification. Unchanged history tables do not rebuild.
 
-Validated: eight unit tests; offscreen UI initialization, all navigation paths, dashboard values, busy state, 960×640 resize and disconnect reset. Signal-based check: 100 unchanged refreshes produced zero Creator list row insertions and preserved selection. No live Discord writes performed. Real Windows interaction remains to be confirmed by the user.
+Eleven unit tests cover history bounds, bucket replacement, retention, 24h boundaries, coverage limit, server isolation, rollback after write failure and the existing credentials/updater paths. Offscreen UI checks passed for history display, unchanged-table refresh and disconnect reset; table contrast inspected and corrected. Release status verified during publication. AI context includes the new coverage and 24h fields.
 
-ROADMAP.md contains upcoming feature integrations. Dependencies and source updater protocol unchanged.
+Next: consistent activity windows beyond the 100-message sample and reviewed Discord voting integration, following ROADMAP.md.
