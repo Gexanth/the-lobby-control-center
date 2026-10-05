@@ -179,3 +179,7 @@ permanent guarantee that a moderator will not later remove the role.
 
 API references: https://docs.discord.com/developers/resources/guild#add-guild-member-role
 and https://docs.discord.com/developers/topics/permissions#permission-hierarchy
+
+0.3.5: if another operation starts while a confirmation dialog is open, the
+role assignment is not started or recorded as sending. Wait for that operation
+and review again. Poll publication likewise waits for an available worker.

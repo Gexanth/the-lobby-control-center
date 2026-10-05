@@ -51,3 +51,7 @@ Bewerbung/Angenommen/Pausiert filtering, search, status counts, explicit editing
 ## 0.3.4 — Creator Hub: reviewed role association
 
 Optional member/role IDs stored locally; accepted creators can preview verified human member/role names and explicitly assign one existing role. Permission/hierarchy checks are refreshed immediately before execution, result read back, unknown delivery retained without auto-retry. Only non-managed roles with zero guild permission bitfield are supported; channel overwrites are not analyzed. Local status changes/removal never revoke roles. Stream notifications remain pending, require a configured verified source. Next: easier role selection and source setup.
+
+## 0.3.5 — Creator Hub / Lobby Night concurrency
+
+Confirmation-time worker/client guards prevent recording delivery intent for an operation blocked by another job. Role UI regression simulates timer activity during confirmation. Functional module order unchanged.

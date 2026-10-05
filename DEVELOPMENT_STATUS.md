@@ -1,4 +1,4 @@
-# Development status — 0.3.4
+# Development status — 0.3.5
 
 Community access hotfix from 0.2.5 retained: all tabs navigable offline with local server context; live actions require matching Discord connection. GitHub Actions installs the existing application requirements and runs offscreen UI regressions.
 
@@ -27,3 +27,5 @@ Next Creator Hub step: optional Discord identity/role association with concrete 
 Validation: 44 tests passed, including fake-transport permission/hierarchy/managed/privileged-role guards, changed preview, disabled writes, existing-role no-op, persistence rollback, UI cancel/confirm, unclear failure and failed intent save preventing writes. No real Discord server changes or paid API calls. Live Windows/Discord assignment still needs the owner’s runtime confirmation. No requirements/launcher/data-format changes.
 
 Next: role selection from loaded server overview and verified stream-source configuration; automatic stream announcements are still pending.
+
+0.3.5 concurrency refinement: modal confirmation dialogs process Qt timer events. Recheck worker availability and client identity after role confirmation, before persisting delivery intent; refuse poll dispatch when another job has started. Prevents a stale sending record when run_discord_job would decline a concurrent action. The UI role regression explicitly simulates a job starting during confirmation; all 44 tests pass.

@@ -200,6 +200,10 @@ class CommunityAccessTests(unittest.TestCase):
             success(result)
         with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.No):c.review_creator_role()
         self.assertFalse(any(m=='PUT' for m,p in fake.calls))
+        def started_other_job(*args):self.w.discord_worker=object();return QMessageBox.Yes
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',side_effect=started_other_job):c.review_creator_role()
+        self.w.discord_worker=None
+        self.assertFalse(any(m=='PUT' for m,p in fake.calls));self.assertNotIn('role_delivery',c.chosen_creator())
         with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.review_creator_role()
         self.assertEqual(sum(m=='PUT' for m,p in fake.calls),1);self.assertEqual(c.chosen_creator()['role_delivery']['state'],'confirmed')
         with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question') as confirm:c.review_creator_role();confirm.assert_not_called()

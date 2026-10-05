@@ -316,6 +316,7 @@ class CommunityPage(QWidget):
             return
         self.publish_approved_poll(spec,client)
     def publish_approved_poll(self,spec,client):
+        if self.host.discord_worker is not None:self.status.setText('Ein anderer Vorgang läuft. Veröffentlichung danach erneut prüfen.');return
         journal=PollJournal(self.store)
         try:journal.begin(spec)
         except (CommunityError,OSError) as exc:self.status.setText('Versand nicht begonnen: '+str(exc));return
@@ -478,6 +479,8 @@ class CommunityPage(QWidget):
             text='Server: '+guild+'\nCreator: '+current['name']+'\nDiscord-Mitglied: '+plan['member_name']+' ('+link['member_id']+')\nRolle: '+plan['role_name']+' ('+link['role_id']+')\n\nDiese bestehende Rolle jetzt zuweisen? Andere Rollen bleiben erhalten. Keine Nachricht oder Benachrichtigung wird gesendet.'
             if QMessageBox.question(self,'Creator-Rolle zuweisen',text,QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:
                 self.creator_role_status.setText('Rollenvergabe abgebrochen. Keine Discord-Änderung gesendet.');return
+            if self.host.discord_worker is not None or self.host.discord_client is not client:
+                self.creator_role_status.setText('Verbindung oder laufender Vorgang geändert. Danach erneut prüfen.');return
             if not self.guard(lambda:delivery(self.store,guild,item,link,'sending')):return
             self.creator_role_status.setText('Bestätigte Rollenvergabe wird erneut geprüft und ausgeführt …')
             def done(result):
