@@ -1,9 +1,9 @@
-# Development status — 0.2.3
+# Development status — 0.2.4
 
-Roadmap stage: Activity System. Bounded 24h collection now paginates up to five pages (500 messages), stopping when an older message is reached or a nonempty short page reaches the accessible history end. The aggregate includes explicit coverage status and window boundaries; bots excluded, message content and member IDs not retained. A full scan at the cap is marked incomplete. Empty responses are marked unconfirmed because missing Read Message History may return no messages. Historic 0.2.2 samples remain readable and marked as old samples.
+Roadmap stage: Activity System. Explainable participation ideas added in Community → Mitmachimpulse, with a shortcut from Activity. Suggestions cover conversation starts, Lobby Night proposals and Creator introductions. Text can be edited and copied; no outgoing Discord messages or API requests occur.
 
-Permissions errors show targeted feedback for invalid credentials, denied channel access and missing/inaccessible resources. Request limits do not trigger automatic retries. Page errors invalidate the run rather than saving a misleading partial sample; repeated cursors are rejected.
+Only confirmed 24h captures no older than six hours drive activity-specific suggestions. Empty/unconfirmed, capped, old, invalid or legacy records use general suggestions and explain the data gap. Thresholds (zero messages; up to three participants; more participants) are explicit simple heuristics, not a server-wide diagnosis. No author IDs or tokens are included. Edited drafts survive same-channel refreshes, including recommendation changes.
 
-Validated: 15 unit tests including two-page cutoff, early stop, five-page cap, empty response, page failure and repeated cursor; existing storage/credentials/update tests retained. UI coverage rendering inspected with synthetic data during publication. No live Discord modifications or paid AI calls performed.
+Validation: 18 unit tests including recommendation branches, data-gap handling and no private fields in drafts; existing updater/credential/activity tests passed. UI checks verify tab navigation, clipboard, unsent status and edited draft retention. No real Discord writes or paid AI calls.
 
-Next: participation suggestions and reviewed Lobby Night voting integration. Dependencies and launcher protocol unchanged.
+Next roadmap stage: reviewed Lobby Night voting integration. Dependencies and launcher protocol unchanged.

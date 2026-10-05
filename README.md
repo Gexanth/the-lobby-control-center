@@ -86,3 +86,10 @@ as confirmed zero activity. Stored older 100-message snapshots remain labeled.
 No message contents or author IDs are stored; dependencies unchanged.
 
 API reference: https://github.com/discord/discord-api-docs/blob/main/developers/resources/message.mdx
+
+## Participation ideas (0.2.4)
+
+Open Community → Mitmachimpulse or use the shortcut on Activity. Select an idea,
+edit the draft and copy it into Discord if appropriate. Nothing is sent by the
+app. Suggestions are local rules with visible reasons, not AI analysis. Old or
+incomplete activity data only produces general ideas. No additional API calls.

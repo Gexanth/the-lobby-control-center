@@ -27,3 +27,7 @@ Selected-channel history, last-24h counts within the sample, explicit sample-cap
 ## 0.2.3 progress — Activity System
 
 Bounded 24h paging up to 500 messages, early stop, explicit coverage state and targeted permissions errors implemented. Empty responses do not prove zero activity. Cap, inaccessible/deleted messages and Voice activity remain limitations. Historical snapshots retain coverage metadata. Next: participation suggestions, then reviewed Lobby Night voting.
+
+## 0.2.4 progress — Activity System
+
+Explainable local participation suggestions with editable/copyable drafts implemented. Fresh confirmed capture required for activity-specific ideas; otherwise general ideas only. No automatic publishing or paid AI calls. Next: reviewed Discord voting for Lobby Night.

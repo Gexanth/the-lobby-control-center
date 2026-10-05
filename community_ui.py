@@ -1,6 +1,7 @@
 from datetime import datetime,timedelta
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout
+from engagement import engagement_ideas
 from community import CommunityStore,CommunityError,activity_sample,parse_time
 
 class CommunityPage(QWidget):
@@ -21,6 +22,7 @@ class CommunityPage(QWidget):
         a.addWidget(self.auto_sample)
         self.activity_timer=QTimer(self);self.activity_timer.setInterval(15*60*1000);self.activity_timer.timeout.connect(lambda:self.sample() if self.auto_sample.isChecked() else None);self.activity_timer.start()
         self.activity_metrics=QLabel('Noch keine Daten für diesen Kanal.');self.activity_metrics.setWordWrap(True);a.addWidget(self.activity_metrics)
+        b=QPushButton('Passenden Mitmachimpuls ansehen');b.clicked.connect(lambda:self.tabs.setCurrentIndex(4));a.addWidget(b)
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
         self.history_table=QTableWidget(0,5);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Gelesen','Abdeckung'])
@@ -46,6 +48,17 @@ class CommunityPage(QWidget):
         x=page('Serveranalyse')
         info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. OpenAI-API-Schlüssel unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
         b=QPushButton('KI-Analyse im Assistenten starten');b.clicked.connect(self.analyze);x.addWidget(b);x.addStretch()
+        e=page('Mitmachimpulse')
+        intro=QLabel('Konkrete Gesprächsideen aus der ausgewählten Aktivitätsmessung. Die Begründung zeigt, ob Daten verwendbar sind. Kein API-Schlüssel und keine zusätzlichen Abrufe erforderlich.');intro.setWordWrap(True);e.addWidget(intro)
+        self.engagement_basis=QLabel();self.engagement_basis.setWordWrap(True);self.engagement_basis.setTextFormat(Qt.PlainText);e.addWidget(self.engagement_basis)
+        self.engagement_select=QComboBox();self.engagement_select.currentIndexChanged.connect(self.select_engagement);e.addWidget(self.engagement_select)
+        self.engagement_why=QLabel();self.engagement_why.setWordWrap(True);self.engagement_why.setTextFormat(Qt.PlainText);e.addWidget(self.engagement_why)
+        self.engagement_draft=QTextEdit();self.engagement_draft.setPlaceholderText('Vorschlag vor dem Kopieren bearbeiten …');e.addWidget(self.engagement_draft)
+        b=QPushButton('Bearbeiteten Gesprächsimpuls kopieren');b.clicked.connect(self.copy_engagement);e.addWidget(b)
+        b=QPushButton('Lobby-Night-Planer öffnen');b.clicked.connect(lambda:self.tabs.setCurrentIndex(1));e.addWidget(b)
+        hint=QLabel('Die Vorschläge werden nicht automatisch versendet. Kopiere bei Bedarf einen passenden Impuls in Discord. Keine Mitglieder pingen und keine Erfolgsgarantie.');hint.setWordWrap(True);e.addWidget(hint)
+        self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
+        self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
         self.tabs.setEnabled(False)
         self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.start()
     def bind(self,data):
@@ -63,7 +76,7 @@ class CommunityPage(QWidget):
             self.status.setText('Community für '+data['name']);self.refresh();QTimer.singleShot(0,self.reminders)
         else:
             self.auto_sample.setChecked(False)
-            self.status.setText('Discord verbinden, um Community-Daten zu öffnen.');self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Discord nicht verbunden.')
+            self.status.setText('Discord verbinden, um Community-Daten zu öffnen.');self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Discord nicht verbunden.');self.engagement_draft.clear();self._engagement_signature=None
             self._night_signature=None;self._creator_signature=None
         self.dashboard()
     def sync_list(self,widget,rows,signature_name,display):
@@ -85,12 +98,14 @@ class CommunityPage(QWidget):
         if not self.guild_id:return
         g=self.store.guild(self.guild_id)
         self.refresh_activity()
+        self.refresh_engagement()
         self.sync_list(self.nights,g['nights'],'_night_signature',lambda n:f"{n['title']} · {parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')} · {n['status']}")
         self.sync_list(self.creators,g['creators'],'_creator_signature',lambda c:f"{c['name']} · {c['status']}")
         self.dashboard()
     def channel_changed(self):
         if hasattr(self,'auto_sample'):self.auto_sample.setChecked(False)
         if hasattr(self,'history_table'):self.refresh_activity()
+        if hasattr(self,'engagement_select'):self.refresh_engagement()
     def refresh_activity(self):
         channel=self.channel.currentData()
         g=self.store.guild(self.guild_id) if self.guild_id else {}
@@ -118,6 +133,29 @@ class CommunityPage(QWidget):
                 for j,value in enumerate([local(row['checked_at']),row.get('messages_24h','—'),row.get('participants_24h','—'),row['sample_size'],{'window_reached':'24h erreicht','history_end':'Verlaufende','empty_or_no_history_access':'Unbestätigt','capped':'500-Grenze'}.get(row.get('coverage'),'Alte Stichprobe')]):self.history_table.setItem(i,j,QTableWidgetItem(str(value)))
             self._history_signature=signature
         finally:self.history_table.setUpdatesEnabled(True)
+
+    def refresh_engagement(self):
+        sample=self.store.guild(self.guild_id).get('activity',{}).get(self.channel.currentData()) if self.guild_id else None
+        result=engagement_ideas(sample)
+        self.engagement_basis.setText(result['basis']);self.engagement_hint.setText(result['limits'])
+        # Preserve a draft being edited while the recommendation stays the same.
+        signature=(self.guild_id,self.channel.currentData(),result['kind'])
+        old_signature=getattr(self,'_engagement_signature',None)
+        if old_signature==signature:return
+        keep=old_signature is not None and old_signature[:2]==signature[:2] and self.engagement_draft.document().isModified()
+        edited=self.engagement_draft.toPlainText() if keep else None
+        self.engagement_select.blockSignals(True);self.engagement_select.clear()
+        for idea in result['ideas']:self.engagement_select.addItem(idea['title'],idea)
+        self.engagement_select.blockSignals(False);self._engagement_signature=signature;self.select_engagement()
+        if edited is not None:self.engagement_draft.setPlainText(edited);self.engagement_draft.document().setModified(True)
+    def select_engagement(self,*_):
+        idea=self.engagement_select.currentData()
+        if idea:self.engagement_why.setText(idea['why']);self.engagement_draft.setPlainText(idea['draft'])
+    def copy_engagement(self):
+        from PySide6.QtWidgets import QApplication
+        text=self.engagement_draft.toPlainText().strip()
+        if not text:self.status.setText('Bitte einen Gesprächsimpuls auswählen oder eingeben.');return
+        QApplication.clipboard().setText(text);self.status.setText('Gesprächsimpuls kopiert. Noch nicht in Discord veröffentlicht.')
 
     def dashboard(self):
         if not hasattr(self.host,'community_summary'):return
