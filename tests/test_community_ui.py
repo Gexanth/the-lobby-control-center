@@ -127,3 +127,36 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertIn('abgelaufen',c.poll_status.text());self.assertIn('0 fällig',self.w.community_summary.text())
         self.assertFalse(c.poll_publish.isEnabled());self.assertFalse(c.poll_unschedule.isHidden())
         n['status']='abgesagt';c.dispatch_scheduled_poll();self.assertIn('abgesagt',c.poll_status.text())
+
+    def test_dashboard_keeps_local_work_when_disconnected(self):
+        from datetime import datetime,timezone,timedelta
+        from PySide6.QtCore import Qt
+        c=self.w.community;guild='930828728966217728'
+        c.offline_server.setCurrentText(guild);c.open_offline()
+        self.w.store.add('<b>Local task</b>');done=self.w.store.add('Done');self.w.store.update(done['id'],'Erledigt','');self.w.refresh_tasks()
+        now=datetime.now(timezone.utc)
+        c.store.add_night(guild,'Upcoming',(now+timedelta(days=1)).isoformat(),'A\nB')
+        canceled=c.store.add_night(guild,'Canceled',(now+timedelta(days=2)).isoformat(),'A\nB');c.store.cancel_night(guild,canceled['id'])
+        old=c.store.add_night(guild,'Past',(now+timedelta(days=3)).isoformat(),'A\nB');old['when']=(now-timedelta(days=1)).isoformat();old['reminded']=True;c.store.save();c.refresh()
+        class Client:pass
+        client=Client();client.guild=guild;self.w.discord_client=client
+        self.w.show_discord({'id':guild,'name':'test','channels':[],'roles':[],'approximate_members_including_bots':70,'online_now_not_weekly_activity':22})
+        d=self.w.dashboard_page
+        self.assertEqual(d.values['members'].text(),'70');self.assertTrue(d.badge.property('connected'))
+        self.w.disconnect_discord()
+        self.assertEqual(d.values['members'].text(),'—');self.assertEqual(d.values['tasks'].text(),'1');self.assertFalse(d.badge.property('connected'))
+        self.assertIn('Upcoming',d.nights.text());self.assertNotIn('Canceled',d.nights.text());self.assertNotIn('Past',d.nights.text())
+        self.assertIn('<b>Local task</b>',d.task_preview.text());self.assertEqual(d.task_preview.textFormat(),Qt.PlainText)
+
+    def test_dashboard_buttons_keep_navigation_and_offline_access(self):
+        from PySide6.QtWidgets import QPushButton
+        d=self.w.dashboard_page
+        for text,tab in [('Aktivität öffnen',0),('Lobby Night öffnen',1),('Creator Hub öffnen',2)]:
+            button=next(b for b in d.findChildren(QPushButton) if b.text()==text);button.click()
+            self.assertEqual(self.w.stack.currentIndex(),7);self.assertEqual(self.w.community.tabs.currentIndex(),tab)
+            self.assertTrue(self.w.nav_buttons[7].isChecked());self.assertTrue(self.w.community.tabs.isEnabled())
+        d.connection_button.click();self.assertEqual(self.w.stack.currentIndex(),2)
+        next(b for b in d.findChildren(QPushButton) if b.text()=='Aufgaben verwalten').click();self.assertEqual(self.w.stack.currentIndex(),3)
+        for index,b in enumerate(self.w.nav_buttons):b.click();self.assertEqual(self.w.stack.currentIndex(),index)
+        self.w.stack.setCurrentIndex(0);self.app.processEvents()
+        self.assertEqual(self.w.stack.currentWidget().horizontalScrollBar().maximum(),0)

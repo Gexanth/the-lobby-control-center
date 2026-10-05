@@ -15,6 +15,7 @@ from update_ui import UpdatePage
 from updates import UpdateError
 from credentials import load_login,save_login,forget_login,CredentialError
 from community_ui import CommunityPage
+from dashboard_ui import DashboardPage
 from version import VERSION
 from app_icon import icon,APP_ID
 
@@ -63,15 +64,20 @@ class MainWindow(QMainWindow):
 
         sidebar=QFrame(); sidebar.setObjectName('sidebar'); sidebar.setFixedWidth(235)
         side=QVBoxLayout(sidebar); side.setContentsMargins(18,24,18,24)
-        brand=QLabel('THE LOBBY\nCONTROL CENTER'); brand.setObjectName('brand'); side.addWidget(brand); side.addSpacing(25)
+        brand_row=QHBoxLayout();brand_icon=QLabel();brand_icon.setPixmap(icon().pixmap(34,34));brand_row.addWidget(brand_icon)
+        brand=QLabel('THE LOBBY\nControl Center');brand.setObjectName('brand');brand_row.addWidget(brand,1);side.addLayout(brand_row);side.addSpacing(24)
         self.stack=QStackedWidget()
         self.nav_buttons=[]
-        nav=[('⌂  Dashboard',self.dashboard()),('✦  Assistent',self.assistant()),('◈  Discord',self.discord()),('✓  Aufgaben',self.tasks()),('⚡  Automationen',self.automations()),('⚙  Einstellungen',self.settings()),('↻  Updates',self.update_page()),('◉  Community',self.community_page())]
+        nav=[('Übersicht',self.dashboard()),('Assistent',self.assistant()),('Discord',self.discord()),('Aufgaben',self.tasks()),('Automationen',self.automations()),('Einstellungen',self.settings()),('Updates',self.update_page()),('Community',self.community_page())]
         for i,(name,page) in enumerate(nav):
             b=QPushButton(name); b.setObjectName('nav');b.setCheckable(True);b.setToolTip(f'{name.strip()} · Strg+{i+1}')
-            b.clicked.connect(lambda _,x=i:self.stack.setCurrentIndex(x));side.addWidget(b);self.nav_buttons.append(b)
+            b.clicked.connect(lambda _,x=i:self.stack.setCurrentIndex(x));self.nav_buttons.append(b)
             scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame);scroll.setWidget(page);self.stack.addWidget(scroll)
             shortcut=QShortcut(QKeySequence(f'Ctrl+{i+1}'),self);shortcut.activated.connect(lambda x=i:self.stack.setCurrentIndex(x))
+        for section,indices in [('ARBEITSBEREICH',(0,1,2,7)),('ORGANISATION',(3,4)),('SYSTEM',(5,6))]:
+            heading=QLabel(section);heading.setObjectName('navSection');side.addWidget(heading)
+            for index in indices:side.addWidget(self.nav_buttons[index])
+            side.addSpacing(12)
         self.stack.currentChanged.connect(self.mark_navigation);self.mark_navigation(0)
         side.addStretch(); version=QLabel('Version '+VERSION); version.setObjectName('muted'); side.addWidget(version)
         shell.addWidget(sidebar); shell.addWidget(self.stack,1)
@@ -92,28 +98,21 @@ class MainWindow(QMainWindow):
         return f,value
 
     def dashboard(self):
-        p=Page('Dashboard','Serverstatus und Community auf einen Blick.')
-        row=QHBoxLayout();self.dashboard_values={}
-        for title,key in [('Mitglieder · ungefähr','members'),('Jetzt online · ungefähr','online'),('Kanäle','channels')]:
-            card,value=self.metric_card(title);self.dashboard_values[key]=value;row.addWidget(card)
-        p.layout.addLayout(row)
-        self.dashboard_connection=QLabel('Verbinde deinen Bot unter Discord, um aktuelle Serverwerte zu laden.');self.dashboard_connection.setWordWrap(True);p.layout.addWidget(self.dashboard_connection)
-        row=QHBoxLayout()
-        for text,index,tab in [('Discord verbinden',2,None),('Aktivität ansehen',7,0),('Lobby Night planen',7,1),('Creator verwalten',7,2)]:
-            button=QPushButton(text);button.clicked.connect(lambda _,i=index,t=tab:self.open_page(i,t));row.addWidget(button)
-        p.layout.addLayout(row)
-        p.layout.addWidget(self.card('Community','Aktivität erfassen, Lobby Nights planen und Creator-Bewerbungen verwalten.'))
-        self.community_summary=QLabel('Community: Discord noch nicht verbunden.');self.community_summary.setWordWrap(True);p.layout.addWidget(self.community_summary)
-        p.layout.addWidget(QLabel('Aufgaben'));self.summary=QLabel();self.summary.setWordWrap(True);p.layout.addWidget(self.summary)
-        p.layout.addStretch();return p
+        self.dashboard_page=DashboardPage(self)
+        self.dashboard_values=self.dashboard_page.values
+        self.dashboard_connection=self.dashboard_page.connection
+        self.community_summary=self.dashboard_page.community_summary
+        self.summary=self.dashboard_page.summary
+        return self.dashboard_page
 
     def open_page(self,index,tab=None):
         self.stack.setCurrentIndex(index)
         if tab is not None:self.community.tabs.setCurrentIndex(tab)
 
     def refresh_dashboard(self,data=None):
+        self.dashboard_page.set_connected(data)
         if not data:
-            for value in self.dashboard_values.values():value.setText('—')
+            for key in ('members','online','channels'):self.dashboard_values[key].setText('—')
             self.dashboard_connection.setText('Discord nicht verbunden.');self.connection_badge.setText('Discord nicht verbunden.');return
         values={'members':data.get('approximate_members_including_bots'),'online':data.get('online_now_not_weekly_activity'),'channels':len(data.get('channels',[]))}
         for key,value in values.items():self.dashboard_values[key].setText(str(value) if value is not None else '—')
@@ -372,7 +371,8 @@ class MainWindow(QMainWindow):
             if task['id']==selected: self.task_list.setCurrentItem(item)
         if hasattr(self,'summary'):
             counts={status:sum(x['status']==status for x in self.store.items) for status in STATUSES}
-            self.summary.setText('  •  '.join(f'{n} {status}' for status,n in counts.items()))
+            self.summary.setText('  ·  '.join(f'{n} {status}' for status,n in counts.items()))
+            self.dashboard_page.refresh_tasks(self.store.items)
 
     def select_task(self, item, *_):
         task=next((x for x in self.store.items if item and x['id']==item.data(Qt.UserRole)),None)
@@ -433,37 +433,60 @@ class MainWindow(QMainWindow):
         return self.mutate(lambda:self.store.add(text))
 
     def apply_style(self):
-        self.setStyleSheet('''
-        * { font-family: "Segoe UI"; font-size: 14px; }
-        QMainWindow,QWidget { background:#0b0e14; color:#eef2ff; }
-        #sidebar { background:#10141d; border-right:1px solid #242a38; }
-        #brand { font-size:18px; font-weight:800; letter-spacing:1px; color:#8ea7ff; }
-        #title { font-size:30px; font-weight:800; }
-        #subtitle,#muted { color:#9099aa; }
-        #nav { text-align:left; padding:12px 14px; border:0; border-radius:8px; background:transparent; color:#cdd5e5; }
-        #nav:hover { background:#1a2030; }
-        #nav:checked { background:#262345; color:#c7baff; border-left:3px solid #a78bfa; }
-        #metric { font-size:36px; font-weight:800; color:#c7baff; }
-        QPushButton { background:#202638; border:1px solid #343b50; border-radius:8px; padding:9px 12px; }
-        QPushButton:hover { background:#2c344b; }
-        QTabWidget::pane { border:1px solid #293144; border-radius:8px; }
-        QTabBar::tab { background:#141b29; padding:10px 13px; color:#aab4cb; }
-        QTabBar::tab:selected { background:#292442; color:#ddd0ff; }
-        QTableWidget { background:#10151f; alternate-background-color:#192132; color:#eef2ff; gridline-color:#293144; border:1px solid #293144; }
-        QTableWidget::item:selected { background:#393058; color:white; }
-        QHeaderView::section { background:#171e2c; color:#cdd5e5; padding:8px; border:1px solid #293144; }
-        QScrollArea { border:0; }
-        QStatusBar { background:#10141d; color:#aab4cb; }
-        QProgressBar { border:0; background:#1a2030; max-height:6px; }
-        QProgressBar::chunk { background:#a78bfa; }
-        #card { background:#121722; border:1px solid #252c3b; border-radius:12px; padding:12px; }
-        #card QLabel { background:transparent; }
-        QPushButton:disabled { color:#737b8c; }
-        #cardTitle { font-size:17px; font-weight:700; }
-        QLineEdit,QTextEdit,QListWidget,QComboBox { background:#10151f; border:1px solid #293144; border-radius:9px; padding:10px; }
-        #primary { background:#536dfe; color:white; border:0; border-radius:9px; padding:11px 16px; font-weight:700; }
-        #primary:hover { background:#6980ff; }
-        ''')
+        self.setStyleSheet(' '.join([
+            '* { font-family:"Segoe UI"; font-size:13px; color:#e6eaf3; }',
+            'QMainWindow,QWidget { background:#0d111b; }',
+            'QLabel { background:transparent; }',
+            '#sidebar { background:#121725; border-right:1px solid #252d40; }',
+            '#brand { font-size:16px; font-weight:700; color:#e8eafa; }',
+            '#navSection { color:#79839b; font-size:10px; font-weight:700; padding:5px 12px; }',
+            '#title { font-size:30px; font-weight:700; color:#f3f5fb; }',
+            '#subtitle,#muted { color:#a3adc2; }',
+            '#footnote { color:#8691a9; font-size:12px; }',
+            '#sectionTitle { font-size:16px; font-weight:600; color:#cbd3e6; }',
+            '#nav { text-align:left; padding:11px 14px; border:1px solid transparent; border-radius:7px; background:transparent; color:#aeb8ce; }',
+            '#nav:hover { background:#1b2335; color:#f3f5fb; }',
+            '#nav:checked { background:#282443; color:#d6ccff; border:1px solid #494064; }',
+            '#metric { font-size:32px; font-weight:700; color:#f2f4fc; }',
+            '#card { background:#151c2b; border:1px solid #2b354b; border-radius:10px; }',
+            '#card QLabel { background:transparent; }',
+            '#cardTitle { font-size:14px; font-weight:600; color:#ccd5e8; }',
+            '#statusPill { border:1px solid #38435b; border-radius:13px; padding:6px 12px; color:#aeb8ce; background:#192133; font-size:12px; }',
+            '#statusPill[connected="true"] { border-color:#275f54; color:#8fe0c3; background:#173b34; }',
+            'QPushButton { background:#202a3d; border:1px solid #3b4963; border-radius:7px; padding:9px 12px; color:#e1e7f5; }',
+            'QPushButton:hover { background:#2b3850; border-color:#63738f; }',
+            'QPushButton:pressed { background:#354363; }',
+            'QPushButton:focus { border:1px solid #b39aff; }',
+            'QPushButton:disabled { background:#182031; border-color:#29344a; color:#8390a8; }',
+            '#primary { background:#8b70eb; color:#ffffff; border:1px solid #a18aef; font-weight:600; }',
+            '#primary:hover { background:#9b82f1; }',
+            '#primary:disabled { background:#3b3553; color:#a49bbd; border-color:#4b4465; }',
+            'QLineEdit,QTextEdit,QListWidget,QComboBox { background:#111827; border:1px solid #35415b; border-radius:7px; padding:9px; selection-background-color:#514475; }',
+            'QLineEdit:focus,QTextEdit:focus,QComboBox:focus,QListWidget:focus { border-color:#a18aef; }',
+            'QLineEdit:disabled,QComboBox:disabled { color:#8390a8; border-color:#29344a; }',
+            'QListWidget::item { padding:6px 8px; border-radius:4px; }',
+            'QListWidget::item:selected { background:#3b335b; color:#eee8ff; }',
+            'QTabWidget::pane { border:1px solid #35415b; border-radius:7px; }',
+            'QTabBar::tab { background:#192235; padding:10px 13px; color:#adb9d0; border-bottom:2px solid transparent; }',
+            'QTabBar::tab:selected { background:#282443; color:#e0d7ff; border-bottom:2px solid #a78bfa; }',
+            'QTabBar::tab:hover { background:#25314a; }',
+            'QCheckBox { spacing:8px; }',
+            'QCheckBox::indicator { width:16px; height:16px; border:1px solid #7483a2; border-radius:4px; background:#111827; }',
+            'QCheckBox::indicator:checked { background:#9b82f1; border:3px solid #c4b5fd; }',
+            'QCheckBox:disabled { color:#8390a8; }',
+            'QTableWidget { background:#111827; alternate-background-color:#192235; gridline-color:#29344a; border:1px solid #35415b; }',
+            'QTableWidget::item:selected { background:#3b335b; color:#eee8ff; }',
+            'QHeaderView::section { background:#1c273b; color:#bdc9df; padding:8px; border:0; border-right:1px solid #35415b; }',
+            'QScrollArea { border:0; }',
+            'QScrollBar:vertical { background:#121725; width:10px; margin:0; }',
+            'QScrollBar::handle:vertical { background:#414e69; border-radius:4px; min-height:24px; margin:2px; }',
+            'QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0; }',
+            'QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical { background:transparent; }',
+            'QStatusBar { background:#121725; color:#a3adc2; border-top:1px solid #252d40; }',
+            'QStatusBar::item { border:0; }',
+            'QProgressBar { border:0; background:#202a3d; max-height:6px; }',
+            'QProgressBar::chunk { background:#a78bfa; }'
+        ]))
 
 if __name__=='__main__':
     if os.name=='nt':

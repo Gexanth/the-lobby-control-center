@@ -39,3 +39,7 @@ Native polls after explicit preview, durable delivery status, link copying and o
 ## 0.3.1 progress — Lobby Night visibility
 
 Schedule recovery feedback and aggregate publication counters are integrated into the existing Dashboard. Future/due/expired/canceled schedules are distinguished using the dispatcher’s actual deadline rules; ambiguous sends require manual inspection. Offline status refresh performs no Discord requests. This supports Lobby Night operations, rather than advancing the full Dashboard stage ahead of Creator Hub. Next: Creator Hub usability and permission prerequisites.
+
+## 0.3.2 — professional overview requested by owner
+
+Visual refinement of the existing shell and overview: grouped navigation, consistent theme, direct entries to Activity/Lobby Night/Creator Hub, real local open-task and upcoming-night previews. Does not introduce new analytics, live sources or change the authorized module order. Next functional stage remains Creator Hub.

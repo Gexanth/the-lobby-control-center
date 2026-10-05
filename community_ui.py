@@ -225,7 +225,8 @@ class CommunityPage(QWidget):
 
     def dashboard(self):
         if not hasattr(self.host,'community_summary'):return
-        if not self.guild_id:self.host.community_summary.setText('Community: Discord noch nicht verbunden.');return
+        if hasattr(self.host,'dashboard_page'):self.host.dashboard_page.refresh_nights(self.guild_id,self.store)
+        if not self.guild_id:self.host.community_summary.setText('Noch kein Server für lokale Community-Daten ausgewählt.');return
         g=self.store.guild(self.guild_id)
         states=[schedule_state(n) or n.get('poll_delivery',{}).get('state') for n in g['nights']]
         delivery=f"Abstimmungen: {states.count('scheduled')} geplant · {states.count('due')} fällig · {states.count('sent')} veröffentlicht"

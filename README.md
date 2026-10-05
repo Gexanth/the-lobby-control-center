@@ -133,3 +133,14 @@ records, with warnings for unclear sends and canceled/expired schedules. These
 are delivery records, not a live server scan. Lobby Night displays the selected
 schedule’s current status even offline. Canceled/past nights cannot start a new
 publication. Stop a pending schedule to clear it; no Discord message is deleted.
+
+## Professional overview (0.3.2)
+
+The start page groups server metrics, open local tasks, upcoming Lobby Nights
+and Community entry points into cards. Server metrics come from the most recent
+Discord overview and clear on disconnect; local tasks and selected-server plans
+remain available offline. Upcoming nights exclude canceled/past entries.
+Grouped navigation preserves all existing page shortcuts (Ctrl+1–8).
+The shared theme improves focus, disabled controls and checkbox visibility.
+At shorter window heights the page scrolls vertically. No data migration or
+additional network requests are introduced.
