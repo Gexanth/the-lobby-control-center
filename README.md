@@ -48,3 +48,13 @@ token is saved in Windows Credential Manager; only the server ID and preference
 are saved in local settings. Credentials populate on the next launch. Use Delete
 saved credentials to remove both stored values. Disconnecting ends the active
 connection without deleting saved login details. No new dependencies required.
+
+## Community workspace (0.2.0)
+
+Connect Discord, then open Community. Activity System reads a selected channel
+with up to 100 latest messages; requires View Channel and Read Message History.
+Optional 15-minute sampling runs only while the app is connected. Lobby Night
+provides local planning, copyable voting text and local reminders. Creator Hub
+provides local application management. Dashboard shows stored community counts.
+Server analysis uses your configured OpenAI API key on explicit request.
+See ROADMAP.md for remaining Discord integrations and data limitations.

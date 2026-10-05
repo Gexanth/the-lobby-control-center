@@ -93,7 +93,7 @@ class Lobby:
             raise ValueError("limit muss zwischen 1 und 100 liegen.")
         messages = self.request("GET", f"/channels/{channel_id}/messages?limit={limit}")
         return [{"id": m["id"], "author_id": m.get("author", {}).get("id"),
-                 "content": m.get("content", ""), "timestamp": m.get("timestamp")}
+                 "content": m.get("content", ""), "bot": m.get("author", {}).get("bot", False), "timestamp": m.get("timestamp")}
                 for m in messages]
 
     def _change(self, method, path, payload, reason, preview):

@@ -1,29 +1,7 @@
-# Stand 0.1.5
+# Development status — 0.2.0
 
-- Windows-Desktop-App mit lokaler Aufgabenverwaltung.
-- Discord-Übersicht und Formularaktionen: Erstellen, Umbenennen, Verschieben.
-- KI-Planung per OpenAI Responses API; Einzelaktionen mit Vorschau.
-- Quellcode-Updates per ZIP-Import oder konfigurierbarer HTTPS-Quelle.
-- Stabiler Starter, getrennte Release-Ordner, Rücksetzung bei Startfehler,
-  manuelle Wiederherstellung, Prüfung von ZIP-Pfaden und SHA-256.
+Community workspace added with the first foundation for all five roadmap modules; see ROADMAP.md for implementation scope and next priorities.
 
-## Noch offen
+Validated: source compilation; eight unit tests covering bounded activity aggregation, bot exclusion, no content persistence, per-server isolation, reminder deduplication, creator editing, AI context filtering, credentials, updater checksums and recovery. Offscreen UI initialization and navigation tested with synthetic server data. No real Discord writes performed. Live API-backed AI response and real Windows interaction remain untested in this environment.
 
-- Feste HTTPS-Downloadquelle einrichten und echten Windows-Updateablauf testen.
-- Tägliche Entwicklungsaufgabe noch nicht aktiv: fünf Aufgabenplätze belegt.
-- API-Aufrufe beim Nutzer liefern 429; Ursache im Code noch genauer unterscheiden.
-- Löschen, Rollen, Berechtigungen, Nachrichten, Abstimmungen, mehrere KI-Aktionen.
-- EXE-Installer/Updates und signierte Releases.
-
-## Validierung
-
-Update-Tests mit künstlichen Paketen: gültiges Manifest, Prüfsummenfehler,
-Pfadtraversal, geänderte Abhängigkeiten, Versionsprüfung, Datenbestand,
-Startfehler mit Rücksetzung und Einzelinstanz-Sperre. Keine echte
-Veröffentlichung und kein Windows-Systemtest in dieser Umgebung.
-
-## Für weitere Versionen
-
-VERSION in version.py erhöhen. Update-Paketstruktur und Starter-Protokoll 1
-beibehalten. Vorherige Aufgaben und Einstellungen erhalten. Bei Änderungen
-an requirements.txt fordert der Updater eine manuelle Installation.
+User workflow: install update from Updates, restart using existing icon, connect Discord, open Community. Activity requires read access and message history permission in the selected channel. Auto sampling and local reminders require the app running and connected. Creator Hub is local administration at this stage.

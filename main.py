@@ -13,6 +13,7 @@ from ai_assistant import request_plan, AIError
 from update_ui import UpdatePage
 from updates import UpdateError
 from credentials import load_login,save_login,forget_login,CredentialError
+from community_ui import CommunityPage
 from version import VERSION
 from app_icon import icon,APP_ID
 
@@ -63,7 +64,7 @@ class MainWindow(QMainWindow):
         side=QVBoxLayout(sidebar); side.setContentsMargins(18,24,18,24)
         brand=QLabel('THE LOBBY\nCONTROL CENTER'); brand.setObjectName('brand'); side.addWidget(brand); side.addSpacing(25)
         self.stack=QStackedWidget()
-        nav=[('⌂  Dashboard',self.dashboard()),('✦  Assistent',self.assistant()),('◈  Discord',self.discord()),('✓  Aufgaben',self.tasks()),('⚡  Automationen',self.automations()),('⚙  Einstellungen',self.settings()),('↻  Updates',self.update_page())]
+        nav=[('⌂  Dashboard',self.dashboard()),('✦  Assistent',self.assistant()),('◈  Discord',self.discord()),('✓  Aufgaben',self.tasks()),('⚡  Automationen',self.automations()),('⚙  Einstellungen',self.settings()),('↻  Updates',self.update_page()),('◉  Community',self.community_page())]
         for i,(name,page) in enumerate(nav):
             b=QPushButton(name); b.setObjectName('nav'); b.clicked.connect(lambda _,x=i:self.stack.setCurrentIndex(x)); side.addWidget(b); self.stack.addWidget(page)
         side.addStretch(); version=QLabel('Version '+VERSION); version.setObjectName('muted'); side.addWidget(version)
@@ -77,7 +78,7 @@ class MainWindow(QMainWindow):
     def dashboard(self):
         p=Page('Dashboard','Zentrale für The Lobby, Aufgaben und den integrierten Assistenten.')
         row=QHBoxLayout(); row.addWidget(self.card('Discord','Verbindung unter Discord prüfen; Kanäle und Rollen anzeigen.')); row.addWidget(self.card('Aufgaben','Aufträge lokal speichern und verwalten.')); row.addWidget(self.card('Assistent','Befehle natürlich formulieren.'))
-        p.layout.addLayout(row); self.summary=QLabel(); p.layout.addWidget(self.summary); p.layout.addWidget(self.card('Aktueller Stand','Aufträge speichern, bearbeiten und für die Übergabe in ChatGPT kopieren. Discord-Übersicht verfügbar. Kanäle erstellen, umbenennen und verschieben unter Discord. KI-Aufträge jetzt unter Assistent; API-Schlüssel in Einstellungen eingeben.')); p.layout.addStretch(); return p
+        p.layout.addLayout(row); self.summary=QLabel(); p.layout.addWidget(self.summary); p.layout.addWidget(self.card('Aktueller Stand','Aufträge speichern, bearbeiten und für die Übergabe in ChatGPT kopieren. Discord-Übersicht verfügbar. Kanäle erstellen, umbenennen und verschieben unter Discord. KI-Aufträge jetzt unter Assistent; API-Schlüssel in Einstellungen eingeben.')); self.community_summary=QLabel('Community: Discord noch nicht verbunden.');self.community_summary.setWordWrap(True);p.layout.addWidget(self.community_summary);p.layout.addStretch(); return p
 
     def assistant(self):
         p=Page('Assistent','KI-Aufträge besprechen und Kanalaktionen vorbereiten. Die Ausführung erfolgt nach einer konkreten Vorschau.')
@@ -116,6 +117,8 @@ class MainWindow(QMainWindow):
         self.openai_api_key=key;self.api_key_input.clear()
         model=self.ai_model.text().strip()
         context=json.loads(json.dumps(self.server_context)) if self.server_context else None
+        if context and hasattr(self,'community'):
+            context['community']=self.community.store.analysis_context(context['id'])
         history=list(self.ai_history)
         self.pending_ai=None;self.ai_apply.setEnabled(False)
         self.chat.insertPlainText('Du: '+prompt+'\n');self.ai_input.clear()
@@ -254,10 +257,12 @@ class MainWindow(QMainWindow):
         self.pending_ai=None;self.ai_apply.setEnabled(False)
         self.discord_output.clear();self.channel_actions.populate([])
         self.discord_status.setText('Verbindung getrennt.')
+        if hasattr(self,'community'):self.community.bind(None)
         self.channel_actions.result.setText('Bitte zuerst die Serverübersicht laden.')
 
     def show_discord(self, data):
         self.server_context=data
+        if hasattr(self,'community'):self.community.bind(data)
         self.discord_status.setText(f"Verbunden: {data['name']} • Server-ID: {data['id']}")
         channels=data.get('channels',[])
         self.channel_actions.populate(channels)
@@ -364,6 +369,10 @@ class MainWindow(QMainWindow):
         p.layout.addWidget(self.card('API-Nutzung','Die API kann separat berechnete Kosten verursachen. Beim Senden werden dein Auftrag, die letzten Gesprächsbeiträge und Kanalnamen sowie IDs an OpenAI übermittelt. Discord-Token, Mitglieder und Nachrichten werden nicht übertragen.'))
         p.layout.addWidget(self.card('Gespräch & Aufgaben','Das KI-Gespräch bleibt in dieser App-Sitzung. Nur ausdrücklich gespeicherte Aufgaben liegen dauerhaft in deiner Aufgabendatei.'))
         p.layout.addWidget(self.card('Aufgabendatei',str(TASK_FILE)));p.layout.addStretch();return p
+
+    def community_page(self):
+        self.community=CommunityPage(self)
+        return self.community
 
     def update_page(self):
         self.updates=UpdatePage(self)
