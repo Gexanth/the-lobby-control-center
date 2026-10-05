@@ -58,3 +58,24 @@ class HistoryTests(unittest.TestCase):
             with patch.object(store,'save',side_effect=OSError('disk full')):
                 with self.assertRaises(OSError):store.record_activity('one',activity_sample([],'42'))
             self.assertEqual(json.dumps(store.data,sort_keys=True),before)
+
+
+class CreatorEditTests(unittest.TestCase):
+    def test_edit_by_id_preserves_identity_and_rejects_collisions(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));first=store.save_creator('one','First','https://www.twitch.tv/first','Bewerbung')
+            second=store.save_creator('one','Second','https://www.twitch.tv/second','Angenommen')
+            edited=store.save_creator('one','Renamed','https://www.twitch.tv/new','Pausiert',first['id'])
+            self.assertEqual(edited['id'],first['id']);self.assertEqual(len(store.guild('one')['creators']),2)
+            with self.assertRaises(CommunityError):store.save_creator('one','Collision',second['url'],'Bewerbung',first['id'])
+            with self.assertRaises(CommunityError):store.save_creator('two','Wrong server',edited['url'],'Bewerbung',first['id'])
+            self.assertEqual(CommunityStore(Path(d)).guild('one')['creators'][0]['url'],edited['url'])
+    def test_failed_creator_writes_restore_local_state(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));row=store.save_creator('one','First','https://www.twitch.tv/first','Bewerbung');before=json.dumps(store.data,sort_keys=True)
+            with patch.object(store,'save',side_effect=OSError('disk full')):
+                for action in [lambda:store.save_creator('one','Changed','https://www.twitch.tv/new','Angenommen',row['id']),lambda:store.save_creator('one','New','https://www.twitch.tv/another','Bewerbung'),lambda:store.remove_creator('one',row['id'])]:
+                    with self.assertRaises(OSError):action()
+                    self.assertEqual(json.dumps(store.data,sort_keys=True),before)
+            self.assertEqual(json.dumps(CommunityStore(Path(d)).data,sort_keys=True),before)

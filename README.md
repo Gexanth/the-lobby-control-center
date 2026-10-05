@@ -144,3 +144,15 @@ Grouped navigation preserves all existing page shortcuts (Ctrl+1–8).
 The shared theme improves focus, disabled controls and checkbox visibility.
 At shorter window heights the page scrolls vertically. No data migration or
 additional network requests are introduced.
+
+## Creator Hub workflow (0.3.3)
+
+Select a local server under Community, then Creator Hub. Search by name/link or
+filter by application status. Select an entry with the mouse or keyboard to
+edit it; changing its channel link now preserves its identity. Links already
+owned by another record are rejected. Use New application to clear the editor.
+Copy uses the saved link, not an unsaved draft. Removal requires confirmation.
+Search and background refresh preserve the current draft; changing server
+clears the editor and filters. Save failures retain the previous stored state.
+All actions in this tab are local; no bot permission or live Discord connection
+is required. Acceptance does not assign roles or enable stream notifications.

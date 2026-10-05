@@ -67,19 +67,27 @@ class CommunityStore:
         for n in self.guild(guild)['nights']:
             if n['id']==item:n['status']='abgesagt'
         self.save()
-    def save_creator(self,guild,name,url,status):
+    def save_creator(self,guild,name,url,status,item=None):
         parsed=urlparse(url)
         if not name.strip() or len(name)>100:raise CommunityError('Creator-Namen mit höchstens 100 Zeichen eingeben.')
         if parsed.scheme!='https' or parsed.hostname not in ('twitch.tv','www.twitch.tv','youtube.com','www.youtube.com') or parsed.username or parsed.password or not parsed.path.strip('/'):
             raise CommunityError('Vollständigen HTTPS-Kanallink von Twitch oder YouTube eingeben.')
         if status not in ('Bewerbung','Angenommen','Pausiert'):raise CommunityError('Ungültiger Creator-Status.')
-        rows=self.guild(guild)['creators']
-        existing=next((x for x in rows if x['url']==url),None)
-        if existing:existing.update(name=name.strip(),status=status)
-        else:rows.append({'id':uuid.uuid4().hex,'name':name.strip(),'url':url,'status':status})
-        self.save()
+        g=self.guild(guild);before=copy.deepcopy(g['creators']);rows=copy.deepcopy(before)
+        existing=next((x for x in rows if x['id']==item),None) if item else next((x for x in rows if x['url']==url),None)
+        if item and not existing:raise CommunityError('Creator nicht mehr vorhanden. Auswahl erneut öffnen.')
+        if item and any(x['url']==url and x['id']!=item for x in rows):raise CommunityError('Dieser Kanallink gehört bereits zu einem anderen Creator.')
+        if existing:existing.update(name=name.strip(),url=url,status=status);result=existing
+        else:
+            result={'id':uuid.uuid4().hex,'name':name.strip(),'url':url,'status':status};rows.append(result)
+        g['creators']=rows
+        try:self.save()
+        except OSError:g['creators']=before;raise
+        return copy.deepcopy(result)
     def remove_creator(self,guild,item):
-        g=self.guild(guild);g['creators']=[x for x in g['creators'] if x['id']!=item];self.save()
+        g=self.guild(guild);before=copy.deepcopy(g['creators']);g['creators']=[x for x in before if x['id']!=item]
+        try:self.save()
+        except OSError:g['creators']=before;raise
     def analysis_context(self,guild):
         g=self.guild(guild)
         return {'activity_samples':list(g['activity'].values()),'planned_lobby_nights':g['nights'],'creator_status_counts':{s:sum(x['status']==s for x in g['creators']) for s in ('Bewerbung','Angenommen','Pausiert')},'limits':'Aktivität ist eine begrenzte Kanalstichprobe, keine vollständige Servermessung. Lobby Nights und Creator-Status werden lokal geplant, nicht mit Discord synchronisiert.'}

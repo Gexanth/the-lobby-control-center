@@ -1,6 +1,6 @@
 from datetime import datetime,timedelta,timezone
 from PySide6.QtCore import QTimer,Qt
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
 from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
 from engagement import engagement_ideas
@@ -68,12 +68,23 @@ class CommunityPage(QWidget):
         b=QPushButton('Ausgewählten Termin absagen');b.clicked.connect(self.cancel_night);n.addWidget(b)
         c=page('Creator Hub')
         info=QLabel('Lokale Bewerbungsübersicht für Twitch-/YouTube-Creator. Änderungen vergeben noch keine Discord-Rollen und aktivieren keine Stream-Benachrichtigungen.');info.setWordWrap(True);c.addWidget(info)
-        self.creator_name=QLineEdit();self.creator_name.setPlaceholderText('Creator-Name');c.addWidget(self.creator_name)
-        self.creator_url=QLineEdit();self.creator_url.setPlaceholderText('https://www.twitch.tv/kanal');c.addWidget(self.creator_url)
-        self.creator_status=QComboBox();self.creator_status.addItems(['Bewerbung','Angenommen','Pausiert']);c.addWidget(self.creator_status)
-        b=QPushButton('Creator speichern / nach Kanallink aktualisieren');b.clicked.connect(self.add_creator);c.addWidget(b)
-        self.creators=QListWidget();self.creators.itemClicked.connect(self.select_creator);c.addWidget(self.creators)
-        b=QPushButton('Ausgewählten Creator entfernen');b.clicked.connect(self.remove_creator);c.addWidget(b)
+        self.creator_edit_id=None;self.creator_edit_guild=None
+        self.creator_summary=QLabel();self.creator_summary.setObjectName('subtitle');c.addWidget(self.creator_summary)
+        row=QHBoxLayout();self.creator_search=QLineEdit();self.creator_search.setPlaceholderText('Creator oder Kanallink suchen …');row.addWidget(self.creator_search,2)
+        self.creator_filter=QComboBox();self.creator_filter.addItems(['Alle Status','Bewerbung','Angenommen','Pausiert']);row.addWidget(self.creator_filter,1);c.addLayout(row)
+        columns=QHBoxLayout();left=QVBoxLayout();self.creators=QListWidget();self.creators.setMinimumHeight(240);self.creators.setMaximumHeight(460);self.creators.currentItemChanged.connect(self.select_creator);left.addWidget(self.creators)
+        self.creator_matches=QLabel();self.creator_matches.setObjectName('muted');left.addWidget(self.creator_matches);columns.addLayout(left,1)
+        frame=QFrame();frame.setObjectName('card');form=QVBoxLayout(frame);form.setContentsMargins(18,18,18,18);form.setSpacing(10)
+        self.creator_editor_title=QLabel('Neue Bewerbung');self.creator_editor_title.setObjectName('cardTitle');form.addWidget(self.creator_editor_title)
+        form.addWidget(QLabel('Creator-Name'));self.creator_name=QLineEdit();self.creator_name.setPlaceholderText('Name des Creators');form.addWidget(self.creator_name)
+        form.addWidget(QLabel('Twitch- oder YouTube-Kanallink'));self.creator_url=QLineEdit();self.creator_url.setPlaceholderText('https://www.twitch.tv/kanal');form.addWidget(self.creator_url)
+        form.addWidget(QLabel('Bearbeitungsstand'));self.creator_status=QComboBox();self.creator_status.addItems(['Bewerbung','Angenommen','Pausiert']);form.addWidget(self.creator_status)
+        self.creator_save=QPushButton('Bewerbung speichern');self.creator_save.setObjectName('primary');self.creator_save.clicked.connect(self.add_creator);form.addWidget(self.creator_save)
+        b=QPushButton('Neue Bewerbung beginnen');b.clicked.connect(self.new_creator);form.addWidget(b)
+        self.creator_copy=QPushButton('Gespeicherten Kanallink kopieren');self.creator_copy.clicked.connect(self.copy_creator_link);form.addWidget(self.creator_copy)
+        self.creator_remove=QPushButton('Ausgewählten Creator entfernen');self.creator_remove.clicked.connect(self.remove_creator);form.addWidget(self.creator_remove)
+        note=QLabel('Statusänderungen bleiben lokal. Rollenvergabe und Stream-Benachrichtigungen sind noch nicht verbunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns);c.addStretch()
+        self.creator_search.textChanged.connect(self.refresh_creators);self.creator_filter.currentTextChanged.connect(self.refresh_creators)
         x=page('Serveranalyse')
         info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. OpenAI-API-Schlüssel unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
         b=QPushButton('KI-Analyse im Assistenten starten');b.clicked.connect(self.analyze);x.addWidget(b);x.addStretch()
@@ -100,6 +111,10 @@ class CommunityPage(QWidget):
         else:
             try:self.guild_id=snowflake(self.offline_server.currentText().strip())
             except ValueError:self.guild_id=None
+        if old_guild!=self.guild_id:
+            self.new_creator();self.creator_search.blockSignals(True);self.creator_filter.blockSignals(True)
+            self.creator_search.clear();self.creator_filter.setCurrentIndex(0)
+            self.creator_search.blockSignals(False);self.creator_filter.blockSignals(False)
         self.tabs.setEnabled(True)
         self.offline_server.setEnabled(not bool(data));self.open_local.setEnabled(not bool(data))
         channels=[(c['name'],c['id']) for c in data.get('channels',[]) if c['type'] in (0,5)] if data else [(f'Gespeicherter Kanal · {cid}',cid) for cid in self.store.guild(self.guild_id)['activity']] if self.guild_id else []
@@ -123,7 +138,7 @@ class CommunityPage(QWidget):
             else:
                 self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.refresh_engagement()
                 self._night_signature=None;self._creator_signature=None
-        self.refresh_connection_controls();self.dashboard()
+        self.refresh_creators();self.refresh_connection_controls();self.dashboard()
     def refresh_connection_controls(self):
         client=self.host.discord_client
         connected=bool(client and client.guild==self.guild_id)
@@ -166,7 +181,7 @@ class CommunityPage(QWidget):
         self.refresh_activity()
         self.refresh_engagement()
         self.sync_list(self.nights,g['nights'],'_night_signature',lambda n:f"{n['title']} · {parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')} · {n['status']}")
-        self.sync_list(self.creators,g['creators'],'_creator_signature',lambda c:f"{c['name']} · {c['status']}")
+        self.refresh_creators()
         self.show_poll_status();self.refresh_connection_controls();self.dashboard()
     def channel_changed(self):
         if hasattr(self,'auto_sample'):self.auto_sample.setChecked(False)
@@ -349,13 +364,62 @@ class CommunityPage(QWidget):
                 self.store.mark_reminded(self.guild_id,n['id'])
                 QMessageBox.information(self,'Lobby Night Erinnerung',n['title']+' ist fällig: '+parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M'))
         except (CommunityError,OSError,ValueError) as exc:self.status.setText(str(exc))
-    def add_creator(self):self.guard(lambda:self.store.save_creator(self.guild_id,self.creator_name.text(),self.creator_url.text().strip(),self.creator_status.currentText()))
-    def select_creator(self,item):
-        c=next(x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole))
-        self.creator_name.setText(c['name']);self.creator_url.setText(c['url']);self.creator_status.setCurrentText(c['status'])
+    def refresh_creators(self,*_):
+        if not hasattr(self,'creator_matches'):return
+        rows=self.store.guild(self.guild_id)['creators'] if self.guild_id else []
+        self.creator_summary.setText('  ·  '.join(f"{sum(x['status']==status for x in rows)} {status}" for status in ('Bewerbung','Angenommen','Pausiert')))
+        query=self.creator_search.text().strip().casefold();status=self.creator_filter.currentText()
+        filtered=sorted((x for x in rows if (status=='Alle Status' or x['status']==status) and (not query or query in x['name'].casefold() or query in x['url'].casefold())),key=lambda x:x['name'].casefold())
+        selected=self.creators.currentItem().data(Qt.UserRole) if self.creators.currentItem() else None
+        self.creators.blockSignals(True);self.creators.clear()
+        for row in filtered:
+            self.creators.addItem(row['name']+' · '+row['status']+'\n'+row['url']);item=self.creators.item(self.creators.count()-1);item.setData(Qt.UserRole,row['id'])
+            if row['id']==selected:self.creators.setCurrentItem(item)
+        self.creators.blockSignals(False)
+        self.creator_matches.setText(f'{len(filtered)} von {len(rows)} Creator angezeigt' if filtered else 'Keine Treffer. Suche/Filter ändern oder eine Bewerbung hinzufügen.')
+        self.creator_save.setEnabled(bool(self.guild_id));chosen=bool(self.creators.currentItem())
+        self.creator_copy.setEnabled(chosen);self.creator_remove.setEnabled(chosen)
+    def new_creator(self):
+        self.creator_edit_id=None;self.creator_edit_guild=None
+        self.creator_name.clear();self.creator_url.clear();self.creator_status.setCurrentIndex(0)
+        self.creator_editor_title.setText('Neue Bewerbung');self.creator_save.setText('Bewerbung speichern')
+        self.creators.setCurrentRow(-1);self.creator_copy.setEnabled(False);self.creator_remove.setEnabled(False)
+    def add_creator(self):
+        if not self.guild_id:self.status.setText('Zuerst eine Server-ID für lokale Bewerbungen auswählen.');return
+        if self.creator_edit_id and self.creator_edit_guild!=self.guild_id:self.status.setText('Server gewechselt. Bewerbung erneut auswählen.');return
+        url=self.creator_url.text().strip()
+        if not self.creator_edit_id and any(x['url']==url for x in self.store.guild(self.guild_id)['creators']):
+            self.status.setText('Kanallink bereits gespeichert. Den bestehenden Creator zum Bearbeiten auswählen.');return
+        def save():
+            row=self.store.save_creator(self.guild_id,self.creator_name.text(),url,self.creator_status.currentText(),self.creator_edit_id)
+            self.creator_edit_id=row['id'];self.creator_edit_guild=self.guild_id
+        if self.guard(save):
+            self.creator_editor_title.setText('Creator bearbeiten');self.creator_save.setText('Änderungen speichern')
+            for i in range(self.creators.count()):
+                if self.creators.item(i).data(Qt.UserRole)==self.creator_edit_id:self.creators.setCurrentRow(i);break
+            self.status.setText('Creator lokal gespeichert. Keine Discord-Rolle geändert.')
+    def select_creator(self,item,*_):
+        self.creator_copy.setEnabled(bool(item));self.creator_remove.setEnabled(bool(item))
+        if not item or not self.guild_id:return
+        row=next((x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole)),None)
+        if not row:return
+        self.creator_edit_id=row['id'];self.creator_edit_guild=self.guild_id
+        self.creator_name.setText(row['name']);self.creator_url.setText(row['url']);self.creator_status.setCurrentText(row['status'])
+        self.creator_editor_title.setText('Creator bearbeiten');self.creator_save.setText('Änderungen speichern')
+    def copy_creator_link(self):
+        item=self.creators.currentItem()
+        if not item or not self.guild_id:return
+        row=next((x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole)),None)
+        if row:
+            from PySide6.QtWidgets import QApplication
+            QApplication.clipboard().setText(row['url']);self.status.setText('Gespeicherter Kanallink kopiert.')
     def remove_creator(self):
         item=self.creators.currentItem()
-        if item:self.guard(lambda:self.store.remove_creator(self.guild_id,item.data(Qt.UserRole)))
+        if not item or not self.guild_id:return
+        row=next((x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole)),None)
+        if not row:return
+        if QMessageBox.question(self,'Creator entfernen',row['name']+' aus dieser lokalen Übersicht entfernen? Discord-Rollen bleiben unverändert.',QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
+        if self.guard(lambda:self.store.remove_creator(self.guild_id,row['id'])):self.new_creator();self.status.setText('Creator aus der lokalen Übersicht entfernt.')
     def analyze(self):
         if not self.host.server_context or self.host.server_context['id']!=self.guild_id:
             self.status.setText('Für die Serveranalyse zuerst die aktuelle Discord-Übersicht laden.');self.open_connection();return

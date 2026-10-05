@@ -43,3 +43,7 @@ Schedule recovery feedback and aggregate publication counters are integrated int
 ## 0.3.2 — professional overview requested by owner
 
 Visual refinement of the existing shell and overview: grouped navigation, consistent theme, direct entries to Activity/Lobby Night/Creator Hub, real local open-task and upcoming-night previews. Does not introduce new analytics, live sources or change the authorized module order. Next functional stage remains Creator Hub.
+
+## 0.3.3 — Creator Hub
+
+Bewerbung/Angenommen/Pausiert filtering, search, status counts, explicit editing/new-record flow, safe ID-based link changes and confirmed removal implemented. Offline server-scoped records retained; no live roles or stream status claimed. Next: optional member/role mapping with reviewed permission-aware actions; stream notification sources still need configuration. Dashboard analytics and expanded AI analysis remain later stages.

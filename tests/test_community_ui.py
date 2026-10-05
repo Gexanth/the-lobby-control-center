@@ -160,3 +160,27 @@ class CommunityAccessTests(unittest.TestCase):
         for index,b in enumerate(self.w.nav_buttons):b.click();self.assertEqual(self.w.stack.currentIndex(),index)
         self.w.stack.setCurrentIndex(0);self.app.processEvents()
         self.assertEqual(self.w.stack.currentWidget().horizontalScrollBar().maximum(),0)
+
+    def test_creator_edit_filter_and_keyboard_selection(self):
+        c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()
+        c.creator_name.setText('Alpha');c.creator_url.setText('https://www.twitch.tv/alpha');c.add_creator()
+        original=c.creator_edit_id;c.creator_url.setText('https://www.twitch.tv/renamed');c.add_creator()
+        self.assertEqual(c.creator_edit_id,original);self.assertEqual(len(c.store.guild(guild)['creators']),1)
+        c.new_creator();c.creator_name.setText('Beta');c.creator_url.setText('https://www.youtube.com/@beta');c.creator_status.setCurrentText('Angenommen');c.add_creator()
+        c.creator_filter.setCurrentText('Bewerbung');self.assertEqual(c.creators.count(),1)
+        c.creators.setCurrentRow(0);self.assertEqual(c.creator_edit_id,original);self.assertEqual(c.creator_name.text(),'Alpha')
+        c.creator_name.setText('Unsaved draft');c.refresh();self.assertEqual(c.creator_name.text(),'Unsaved draft')
+        c.creator_search.setText('no-match');self.assertEqual(c.creators.count(),0);self.assertFalse(c.creator_remove.isEnabled())
+        c.offline_server.setCurrentText('123456789012345680');c.open_offline()
+        self.assertIsNone(c.creator_edit_id);self.assertEqual(c.creator_name.text(),'');self.assertEqual(c.creator_search.text(),'');self.assertEqual(c.creator_filter.currentIndex(),0)
+
+    def test_creator_removal_confirmation_and_copy_saved_link(self):
+        from PySide6.QtWidgets import QMessageBox,QApplication
+        c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()
+        c.creator_name.setText('Alpha');c.creator_url.setText('https://www.twitch.tv/alpha');c.add_creator()
+        c.creator_url.setText('https://www.twitch.tv/unsaved');c.copy_creator_link()
+        self.assertEqual(QApplication.clipboard().text(),'https://www.twitch.tv/alpha')
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.No):c.remove_creator()
+        self.assertEqual(c.creators.count(),1)
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.remove_creator()
+        self.assertEqual(c.creators.count(),0);self.assertIsNone(c.creator_edit_id)
