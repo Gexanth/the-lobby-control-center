@@ -125,3 +125,11 @@ service or automatic Discord reminder. Ambiguous attempts remain blocked.
 
 API references: https://docs.discord.com/developers/resources/poll and
 https://docs.discord.com/developers/resources/message#create-message
+
+## Publication status (0.3.1)
+
+The Dashboard shows planned, due and published poll counts from local delivery
+records, with warnings for unclear sends and canceled/expired schedules. These
+are delivery records, not a live server scan. Lobby Night displays the selected
+schedule’s current status even offline. Canceled/past nights cannot start a new
+publication. Stop a pending schedule to clear it; no Discord message is deleted.

@@ -18,6 +18,15 @@ def poll_spec(guild,night,channel,hours,multi):
     nonce=hashlib.sha256((guild+night['id']).encode()).hexdigest()[:24]
     return {'guild':guild,'night_id':night['id'],'channel':channel,'payload':{'content':'Geplanter Termin: '+parse_time(night['when']).astimezone().strftime('%d.%m.%Y %H:%M')+'\nEigene Spielvorschläge sind willkommen.','poll':{'question':{'text':question},'answers':[{'poll_media':{'text':x.strip()}} for x in options],'duration':hours,'allow_multiselect':multi,'layout_type':1},'allowed_mentions':{'parse':[]},'nonce':nonce,'enforce_nonce':True}}
 
+def schedule_state(night,now=None):
+    """Classify a stored schedule using the same deadlines as the dispatcher."""
+    d=night.get('poll_delivery',{})
+    if d.get('state')!='scheduled':return None
+    now=now or datetime.now(timezone.utc)
+    if night.get('status')!='geplant':return 'cancelled'
+    if parse_time(night['when'])<=now:return 'expired'
+    return 'due' if parse_time(d['send_at'])<=now else 'scheduled'
+
 class PollJournal:
     def __init__(self,store):self.store=store
     def night(self,guild,item):
@@ -43,7 +52,7 @@ class PollJournal:
         self.change(spec['guild'],spec['night_id'],{'state':'scheduled','channel':spec['channel'],'spec':copy.deepcopy(spec),'send_at':due.isoformat()})
     def due(self,guild,now=None):
         now=now or datetime.now(timezone.utc)
-        return [copy.deepcopy(n['poll_delivery']['spec']) for n in self.store.guild(guild)['nights'] if n.get('poll_delivery',{}).get('state')=='scheduled' and parse_time(n['poll_delivery']['send_at'])<=now and n.get('status')=='geplant' and parse_time(n['when'])>now]
+        return [copy.deepcopy(n['poll_delivery']['spec']) for n in self.store.guild(guild)['nights'] if schedule_state(n,now)=='due']
     def unschedule(self,guild,item):
         if self.night(guild,item).get('poll_delivery',{}).get('state')!='scheduled':raise CommunityError('Keine geplante Veröffentlichung ausgewählt.')
         self.change(guild,item,{'state':'ready'})

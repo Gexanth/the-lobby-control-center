@@ -1,7 +1,7 @@
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,timezone
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout
-from polls import poll_spec,PollJournal,send_poll,read_poll_results
+from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
 from engagement import engagement_ideas
 from updates import DATA,read_json,UpdateError
@@ -130,7 +130,8 @@ class CommunityPage(QWidget):
         self.scan.setEnabled(connected and self.host.discord_worker is None and self.channel.currentData() is not None)
         self.auto_sample.setEnabled(connected and self.channel.currentData() is not None)
         n=self.chosen_night();state=n.get('poll_delivery',{}).get('state') if n else None
-        self.poll_publish.setEnabled(connected and self.host.discord_worker is None and self.poll_channel.currentData() is not None and bool(n) and state not in ('sent','sending','uncertain','scheduled'))
+        planned=bool(n and n.get('status')=='geplant' and parse_time(n['when'])>datetime.now(timezone.utc))
+        self.poll_publish.setEnabled(connected and self.host.discord_worker is None and self.poll_channel.currentData() is not None and planned and state not in ('sent','sending','uncertain','scheduled'))
         self.poll_schedule.setEnabled(self.poll_publish.isEnabled());self.poll_unschedule.setVisible(state=='scheduled')
         self.poll_unschedule.setEnabled(self.host.discord_worker is None)
         self.poll_results.setEnabled(connected and self.host.discord_worker is None and state=='sent')
@@ -226,7 +227,12 @@ class CommunityPage(QWidget):
         if not hasattr(self.host,'community_summary'):return
         if not self.guild_id:self.host.community_summary.setText('Community: Discord noch nicht verbunden.');return
         g=self.store.guild(self.guild_id)
-        self.host.community_summary.setText(f"Community: {len(g['activity'])} Kanalstichproben · {sum(n['status']=='geplant' for n in g['nights'])} geplante Lobby Nights · {len(g['creators'])} Creator\nStichproben und Planung sind lokal; keine vollständige Serveraktivitätsmessung.")
+        states=[schedule_state(n) or n.get('poll_delivery',{}).get('state') for n in g['nights']]
+        delivery=f"Abstimmungen: {states.count('scheduled')} geplant · {states.count('due')} fällig · {states.count('sent')} veröffentlicht"
+        attention=states.count('expired')+states.count('cancelled');unclear=states.count('uncertain')+states.count('sending')
+        if attention:delivery+=f' · {attention} gestoppte/abgelaufene Termine'
+        if unclear:delivery+=f' · {unclear} unklare Versandversuche: in Discord prüfen'
+        self.host.community_summary.setText(f"Community: {len(g['activity'])} Kanalstichproben · {sum(n['status']=='geplant' for n in g['nights'])} geplante Lobby Nights · {len(g['creators'])} Creator\n{delivery}\nStichproben und Planung sind lokal; keine vollständige Serveraktivitätsmessung.")
     def sample(self):
         client=self.host.discord_client;channel=self.channel.currentData();guild=self.guild_id
         if not client or client.guild!=guild or not channel:
@@ -252,7 +258,10 @@ class CommunityPage(QWidget):
         d=n.get('poll_delivery',{}) if n else {}
         if d.get('state')=='sent':
             self.poll_status.setText('Veröffentlicht: https://discord.com/channels/'+self.guild_id+'/'+d['channel']+'/'+d['message_id'])
-        elif d.get('state')=='scheduled':self.poll_status.setText('Veröffentlichung geplant: '+parse_time(d['send_at']).astimezone().strftime('%d.%m.%Y %H:%M')+' · App muss laufen und verbunden sein. Nach dem Lobby-Night-Termin wird nicht mehr versendet.')
+        elif d.get('state')=='scheduled':
+            state=schedule_state(n)
+            detail={'cancelled':'Termin abgesagt · wird nicht versendet. Zeitplan kann gestoppt werden.', 'expired':'Termin abgelaufen · wird nicht mehr versendet. Zeitplan kann gestoppt werden.', 'due':'Veröffentlichung fällig · wartet auf passende Verbindung und freien Discord-Zugriff.', 'scheduled':'App muss laufen und mit diesem Server verbunden sein.'}[state]
+            self.poll_status.setText('Veröffentlichungszeit: '+parse_time(d['send_at']).astimezone().strftime('%d.%m.%Y %H:%M')+' · '+detail)
         elif d.get('state') in ('sending','uncertain'):self.poll_status.setText('Versand unklar. Zuerst in Discord prüfen; kein automatischer Neuversand.')
         else:self.poll_status.setText('Noch nicht veröffentlicht. Bot benötigt Kanal ansehen, Nachrichten senden und Abstimmungen erstellen.')
         self.refresh_connection_controls()
@@ -306,6 +315,7 @@ class CommunityPage(QWidget):
         n=self.chosen_night()
         if n:self.guard(lambda:PollJournal(self.store).unschedule(self.guild_id,n['id']))
     def dispatch_scheduled_poll(self):
+        self.show_poll_status();self.dashboard()
         client=self.host.discord_client
         if not client or client.guild!=self.guild_id or self.host.discord_worker is not None:return
         try:

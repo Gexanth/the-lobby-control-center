@@ -35,3 +35,7 @@ Explainable local participation suggestions with editable/copyable drafts implem
 ## 0.3.0 progress — Lobby Night
 
 Native polls after explicit preview, durable delivery status, link copying and on-demand result reading implemented. No scheduled Discord events. Local cancellation does not remove a published poll. Unclear sends require manual verification; no background resending. Explicitly confirmed timed poll publication is implemented with persistent schedules, cancellation, a matching-server guard and no sends after the night begins. App must remain running and connected; missed publication can catch up only before the event. Scheduled Discord reminders remain pending. Next: Dashboard visibility and schedule recovery feedback, then Creator Hub.
+
+## 0.3.1 progress — Lobby Night visibility
+
+Schedule recovery feedback and aggregate publication counters are integrated into the existing Dashboard. Future/due/expired/canceled schedules are distinguished using the dispatcher’s actual deadline rules; ambiguous sends require manual inspection. Offline status refresh performs no Discord requests. This supports Lobby Night operations, rather than advancing the full Dashboard stage ahead of Creator Hub. Next: Creator Hub usability and permission prerequisites.

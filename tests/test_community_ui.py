@@ -111,3 +111,19 @@ class CommunityAccessTests(unittest.TestCase):
         with patch.object(self.w,'run_discord_job',side_effect=synchronous):
             c.dispatch_scheduled_poll();c.dispatch_scheduled_poll()
         self.assertEqual(calls,['GET','POST']);self.assertEqual(n['poll_delivery']['state'],'sent')
+
+    def test_schedule_feedback_matches_expiry_and_cancellation(self):
+        from datetime import datetime,timezone,timedelta
+        from polls import PollJournal,poll_spec
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        c.offline_server.setCurrentText(guild);c.open_offline()
+        c.store.add_night(guild,'Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'Game A\nGame B');c.refresh();c.nights.setCurrentRow(0)
+        n=c.chosen_night();spec=poll_spec(guild,n,channel,24,False)
+        PollJournal(c.store).schedule(spec,(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat());c.refresh()
+        self.assertIn('1 geplant',self.w.community_summary.text())
+        n['poll_delivery']['send_at']=(datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat();c.dispatch_scheduled_poll()
+        self.assertIn('fällig',c.poll_status.text());self.assertIn('1 fällig',self.w.community_summary.text())
+        n['when']=(datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat();c.dispatch_scheduled_poll()
+        self.assertIn('abgelaufen',c.poll_status.text());self.assertIn('0 fällig',self.w.community_summary.text())
+        self.assertFalse(c.poll_publish.isEnabled());self.assertFalse(c.poll_unschedule.isHidden())
+        n['status']='abgesagt';c.dispatch_scheduled_poll();self.assertIn('abgesagt',c.poll_status.text())
