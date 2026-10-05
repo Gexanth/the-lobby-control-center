@@ -75,7 +75,7 @@ def request_plan(api_key, model, prompt, context, history, transport=None):
     if context and isinstance(context.get('community'),dict):
         community=context['community']
         clean['community']={
-            'activity_samples':[{k:s.get(k) for k in ('channel_id','checked_at','messages','participants','sample_size','oldest','latest','scope','messages_24h','participants_24h','limit_reached')} for s in community.get('activity_samples',[])[:50]],
+            'activity_samples':[{k:s.get(k) for k in ('channel_id','checked_at','messages','participants','sample_size','oldest','latest','scope','messages_24h','participants_24h','limit_reached','coverage','window_start','window_end','pages')} for s in community.get('activity_samples',[])[:50]],
             'planned_lobby_nights':[{k:n.get(k) for k in ('title','when','options','status')} for n in community.get('planned_lobby_nights',[]) if n.get('status')=='geplant'][-10:],
             'creator_status_counts':community.get('creator_status_counts',{}),
             'limits':community.get('limits','')}

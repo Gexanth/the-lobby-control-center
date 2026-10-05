@@ -13,7 +13,7 @@ class CommunityPage(QWidget):
         def page(name):
             w=QWidget();l=QVBoxLayout(w);self.tabs.addTab(w,name);return l
         a=page('Activity System')
-        info=QLabel('Liest die letzten bis zu 100 Nachrichten eines gewählten Textkanals. Bots werden ausgeschlossen. Gespeichert werden nur Summen und Zeitpunkte, keine Nachrichtentexte oder Mitglieder-IDs. Dies ist keine vollständige Serverstatistik.');info.setWordWrap(True);a.addWidget(info)
+        info=QLabel('Erfasst die letzten 24 Stunden eines Textkanals in bis zu fünf Abrufen (maximal 500 Nachrichten). Bots werden ausgeschlossen. Gespeichert werden nur Summen und Zeitpunkte, keine Nachrichtentexte oder Mitglieder-IDs. Dies ist keine vollständige Serverstatistik.');info.setWordWrap(True);a.addWidget(info)
         self.channel=QComboBox();a.addWidget(self.channel)
         self.channel.currentIndexChanged.connect(self.channel_changed)
         self.scan=QPushButton('Aktivität dieses Kanals erfassen');self.scan.clicked.connect(self.sample);a.addWidget(self.scan)
@@ -23,9 +23,9 @@ class CommunityPage(QWidget):
         self.activity_metrics=QLabel('Noch keine Daten für diesen Kanal.');self.activity_metrics.setWordWrap(True);a.addWidget(self.activity_metrics)
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
-        self.history_table=QTableWidget(0,5);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Stichprobe','Grenze'])
+        self.history_table=QTableWidget(0,5);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Gelesen','Abdeckung'])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.history_table.setEditTriggers(QTableWidget.NoEditTriggers);self.history_table.setAlternatingRowColors(True);a.addWidget(self.history_table)
-        note=QLabel('¹ Letzte 24 Stunden innerhalb der letzten maximal 100 Nachrichten. Messpunkte können sich überschneiden und dürfen nicht addiert werden. Bei 100 gelesenen Nachrichten ist die Erfassung möglicherweise unvollständig.');note.setWordWrap(True);a.addWidget(note)
+        note=QLabel('¹ Messpunkte überlappen und dürfen nicht addiert werden. Es zählen nur zugängliche, noch vorhandene Nachrichten. Alte Messpunkte nutzen weiterhin die frühere 100-Nachrichten-Stichprobe.');note.setWordWrap(True);a.addWidget(note)
         n=page('Lobby Night')
         info=QLabel('Lokaler Planer: erstellt einen Abstimmungstext und erinnert beim Termin, solange die App läuft. Verpasste Termine werden beim nächsten Verbinden angezeigt. Noch keine automatische Discord-Nachricht oder Abstimmung.');info.setWordWrap(True);n.addWidget(info)
         self.night_title=QLineEdit('Lobby Night');n.addWidget(self.night_title)
@@ -97,9 +97,14 @@ class CommunityPage(QWidget):
         sample=g.get('activity',{}).get(channel)
         def local(value):return parse_time(value).astimezone().strftime('%d.%m. %H:%M') if value else 'unbekannt'
         if sample:
-            self.activity_metrics.setText(f"Letzte 24h in der Stichprobe: {sample.get('messages_24h','—')} Nachrichten · {sample.get('participants_24h','—')} Personen")
+            self.activity_metrics.setText(f"Letzte 24h · erfasst: {sample.get('messages_24h','—')} Nachrichten · {sample.get('participants_24h','—')} Personen")
             text=f"#{self.channel.currentText()} · zuletzt geprüft {local(sample['checked_at'])}\n{sample['messages']} menschliche Nachrichten in {sample['sample_size']} gelesenen Nachrichten\nErfasster Zeitraum: {local(sample['oldest'])} – {local(sample['latest'])}"
-            if sample.get('limit_reached'):text+='\n100-Nachrichten-Grenze erreicht: weitere Nachrichten können fehlen.'
+            coverage=sample.get('coverage')
+            if coverage in ('window_reached','history_end'):text+='\nZeitfenster beziehungsweise zugängliches Verlaufende erreicht.'
+            elif coverage=='empty_or_no_history_access':
+                text+='\nKeine weiteren Nachrichten zurückgegeben. Kanal kann leer sein oder dem Bot fehlt Nachrichtenverlauf lesen. Abdeckung unbestätigt.'
+                if sample['sample_size']==0:self.activity_metrics.setText('Keine belastbaren Aktivitätswerte · Verlaufzugriff prüfen.')
+            elif sample.get('limit_reached'):text+='\nAbrufgrenze erreicht: weitere Nachrichten können fehlen.'
         else:
             self.activity_metrics.setText('Noch keine Daten für diesen Kanal.');text='Wähle einen Kanal und klicke auf Erfassen. Bestehende Stichproben aus älteren Versionen bleiben erhalten; 24h-Werte kommen mit der nächsten Erfassung.'
         if self.activity.toPlainText()!=text:self.activity.setPlainText(text)
@@ -110,7 +115,7 @@ class CommunityPage(QWidget):
         try:
             self.history_table.setRowCount(len(rows))
             for i,row in enumerate(rows):
-                for j,value in enumerate([local(row['checked_at']),row.get('messages_24h','—'),row.get('participants_24h','—'),row['sample_size'],'100 erreicht' if row.get('limit_reached') else 'unter 100']):self.history_table.setItem(i,j,QTableWidgetItem(str(value)))
+                for j,value in enumerate([local(row['checked_at']),row.get('messages_24h','—'),row.get('participants_24h','—'),row['sample_size'],{'window_reached':'24h erreicht','history_end':'Verlaufende','empty_or_no_history_access':'Unbestätigt','capped':'500-Grenze'}.get(row.get('coverage'),'Alte Stichprobe')]):self.history_table.setItem(i,j,QTableWidgetItem(str(value)))
             self._history_signature=signature
         finally:self.history_table.setUpdatesEnabled(True)
 
@@ -125,7 +130,7 @@ class CommunityPage(QWidget):
         self.status.setText('Aktivität wird gelesen …')
         def done(result):
             if self.guard(lambda:self.store.record_activity(guild,result)):self.status.setText('Aktivitätsstichprobe und Verlauf gespeichert.')
-        self.host.run_discord_job(lambda:activity_sample(client.recent_messages(channel,100),channel),done,self.status.setText)
+        self.host.run_discord_job(lambda:client.activity_window(channel),done,self.status.setText)
     def add_night(self):self.guard(lambda:self.store.add_night(self.guild_id,self.night_title.text(),self.night_time.text(),self.options.toPlainText()))
     def chosen_night(self):
         item=self.nights.currentItem()

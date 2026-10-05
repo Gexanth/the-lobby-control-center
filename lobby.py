@@ -1,4 +1,4 @@
-﻿"""Discord REST adapter. No gateway, user-token or arbitrary-URL access."""
+"""Discord REST adapter. No gateway, user-token or arbitrary-URL access."""
 import json
 import os
 import re
@@ -55,8 +55,9 @@ class Lobby:
         except HTTPError as error:
             # Never expose response bodies, tokens, or request headers.
             if error.code == 429:
-                raise DiscordError("Discord-Rate-Limit: spÃ¤ter erneut versuchen; keine automatische Wiederholung.") from None
-            raise DiscordError(f"Discord HTTP {error.code}: Rechte, IDs und Bot-Verbindung prÃ¼fen.") from None
+                raise DiscordError("Discord-Anfragelimit erreicht. Später erneut versuchen; keine automatische Wiederholung.") from None
+            hints={401:'Bot-Token ungültig. Zugangsdaten prüfen.',403:'Bot hat keinen Zugriff. Kanal ansehen und Nachrichtenverlauf lesen prüfen.',404:'Kanal oder Server nicht gefunden beziehungsweise nicht zugänglich.'}
+            raise DiscordError(hints.get(error.code,f'Discord HTTP {error.code}: Rechte, IDs und Bot-Verbindung prüfen.')) from None
         except (URLError, TimeoutError):
             raise DiscordError("Discord nicht erreichbar. Bei Schreibaktionen vor Wiederholung den Server prÃ¼fen.") from None
 
@@ -95,6 +96,42 @@ class Lobby:
         return [{"id": m["id"], "author_id": m.get("author", {}).get("id"),
                  "content": m.get("content", ""), "bot": m.get("author", {}).get("bot", False), "timestamp": m.get("timestamp")}
                 for m in messages]
+
+    def activity_window(self,channel_id,max_pages=5,now=None):
+        """Read a bounded 24h window, retaining only aggregate metadata."""
+        from datetime import timedelta
+        from community import activity_sample,parse_time
+        if type(max_pages) is not int or not 1<=max_pages<=5:raise ValueError('Maximal fünf Abrufe pro Erfassung.')
+        channel=self.channel(channel_id)
+        if channel.get('type') not in (0,5):raise ValueError('Aktivität benötigt einen Text- oder Ankündigungskanal.')
+        now=now or datetime.now(timezone.utc);cutoff=now-timedelta(hours=24)
+        before=None;seen=set();messages=[];pages=0;coverage='capped';scanned=0
+        for _ in range(max_pages):
+            path=f'/channels/{channel_id}/messages?limit=100'
+            if before:path+='&before='+before
+            batch=self.request('GET',path);pages+=1
+            if not isinstance(batch,list) or len(batch)>100:raise DiscordError('Discord lieferte keine gültige Nachrichtenliste.')
+            if not batch:
+                coverage='empty_or_no_history_access';break
+            older=False;ids=[]
+            for m in batch:
+                mid=snowflake(m.get('id'));ids.append(mid)
+                if mid in seen:continue
+                seen.add(mid);scanned+=1
+                try:when=parse_time(m['timestamp'])
+                except (ValueError,KeyError):raise DiscordError('Ungültiger Nachrichtenzeitpunkt; Erfassung wurde verworfen.') from None
+                if when<cutoff:older=True;continue
+                if when>now:continue
+                author=m.get('author',{})
+                messages.append({'author_id':author.get('id'),'bot':author.get('bot',False),'timestamp':m['timestamp']})
+            cursor=min(ids,key=int)
+            if before is not None and int(cursor)>=int(before):raise DiscordError('Nachrichtenabruf ohne Fortschritt; Erfassung wurde verworfen.')
+            before=cursor
+            if older:coverage='window_reached';break
+            if len(batch)<100:coverage='history_end';break
+        sample=activity_sample(messages,channel_id,now)
+        sample.update(sample_size=scanned,pages=pages,coverage=coverage,limit_reached=coverage=='capped',window_start=cutoff.isoformat(),window_end=now.isoformat(),scope='24-Stunden-Fenster, maximal 500 Nachrichten in fünf Abrufen. Nur zugängliche, noch vorhandene Nachrichten; keine gelöschten Nachrichten oder Voice-Aktivität.')
+        return sample
 
     def _change(self, method, path, payload, reason, preview):
         if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 200:

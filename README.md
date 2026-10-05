@@ -75,3 +75,14 @@ Repeated checks within 15 minutes update one point. Old points expire after 30
 days when a new sample is recorded. The 24h counts apply only to the latest 100
 messages read and exclude bots. At the 100-message cap, counts may be incomplete.
 History points overlap: do not sum them. Existing local data remains compatible.
+
+## 24h activity coverage (0.2.3)
+
+New captures read up to five pages / 500 messages per selected channel, stopping
+when the 24h boundary or accessible history end is reached. The table shows
+coverage: 24h reached, history end, cap reached or unconfirmed. An empty response
+can mean an empty channel or missing Read Message History: do not interpret it
+as confirmed zero activity. Stored older 100-message snapshots remain labeled.
+No message contents or author IDs are stored; dependencies unchanged.
+
+API reference: https://github.com/discord/discord-api-docs/blob/main/developers/resources/message.mdx
