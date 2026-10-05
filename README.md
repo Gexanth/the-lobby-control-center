@@ -183,3 +183,26 @@ and https://docs.discord.com/developers/topics/permissions#permission-hierarchy
 0.3.5: if another operation starts while a confirmation dialog is open, the
 role assignment is not started or recorded as sending. Wait for that operation
 and review again. Poll publication likewise waits for an available worker.
+
+## Delete a channel or category (0.3.6)
+
+Connect Discord, then Discord → Manage channels → Delete channel/category.
+Select the target (type/name/ID shown), enter an audit-log reason and choose
+Review deletion. Inspect the server, target ID and effects, then type that exact
+ID to enable Permanent delete. Cancel or a different ID sends no deletion.
+The assistant can also prepare one delete request for an ID in the current
+server context; execution goes through the same fresh preview/ID confirmation.
+No AI request is required to use the form.
+
+Deleting a category retains its child channels and removes their parent
+association. The preview lists those children; changes to the target or child
+list require a fresh preview. Deleting a channel is irreversible and removes
+its contents; restoring an app backup cannot undo a Discord deletion. Bot
+needs Manage Channels. Discord-protected Community rules/update channels are
+rejected before deletion. Text, voice, category, announcement, stage, forum and
+media supported; threads/DMs and recursive bulk deletion are not supported.
+A successful response refreshes the overview. After an unclear error, inspect
+Discord or refresh before trying again; no automatic retry. Local task,
+community and credential records are preserved, including past activity data.
+
+API reference: https://docs.discord.com/developers/resources/channel#deleteclose-channel

@@ -241,3 +241,36 @@ class CommunityAccessTests(unittest.TestCase):
             success(result)
         with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes),patch.object(QMessageBox,'warning'),patch.object(c.store,'save',side_effect=OSError('full')):c.review_creator_role()
         self.assertFalse(any(m=='PUT' for m,p in fake.calls));self.assertNotIn('role_delivery',c.chosen_creator())
+
+    def test_delete_confirmation_requires_exact_id_and_category_is_only_target(self):
+        from test_channel_delete import FakeDelete,G,K
+        from lobby import Lobby
+        from channel_actions import DeleteConfirmation
+        from PySide6.QtWidgets import QDialog
+        fake=FakeDelete();self.w.discord_client=Lobby('test',G,writes=True,db=self.root/'delete-audit.db',transport=fake.transport)
+        self.w.show_discord({'id':G,'name':'test','channels':fake.channels,'roles':[]});c=self.w.channel_actions;c.action.setCurrentIndex(c.action.findData('delete'));c.channel.setCurrentIndex(c.channel.findData(K));c.reason.setText('Delete category')
+        box=DeleteConfirmation(c,'Example',K);self.assertFalse(box.delete_button.isEnabled());box.id_input.setText('wrong');self.assertFalse(box.delete_button.isEnabled());box.id_input.setText(K);self.assertTrue(box.delete_button.isEnabled());box.close()
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(DeleteConfirmation,'exec',return_value=QDialog.Accepted):c.review()
+        self.assertFalse(any(m=='DELETE' for m,p in fake.calls))
+        def confirm(dialog):dialog.id_input.setText(K);return QDialog.Accepted
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(DeleteConfirmation,'exec',confirm),patch.object(self.w,'refresh_discord') as refresh:c.review();refresh.assert_called_once()
+        self.assertEqual([p for m,p in fake.calls if m=='DELETE'],['/channels/'+K])
+
+    def test_delete_waits_if_other_job_starts_during_confirmation(self):
+        from test_channel_delete import FakeDelete,G,K
+        from lobby import Lobby
+        from channel_actions import DeleteConfirmation
+        from PySide6.QtWidgets import QDialog
+        fake=FakeDelete();self.w.discord_client=Lobby('test',G,writes=True,db=self.root/'delete-audit.db',transport=fake.transport)
+        self.w.show_discord({'id':G,'name':'test','channels':fake.channels,'roles':[]});c=self.w.channel_actions;c.action.setCurrentIndex(c.action.findData('delete'));c.channel.setCurrentIndex(c.channel.findData(K));c.reason.setText('Delete category')
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        def occupy(dialog):dialog.id_input.setText(K);self.w.discord_worker=object();return QDialog.Accepted
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(DeleteConfirmation,'exec',occupy):c.review()
+        self.w.discord_worker=None;self.assertFalse(any(m=='DELETE' for m,p in fake.calls))

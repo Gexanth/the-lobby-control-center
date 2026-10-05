@@ -55,3 +55,7 @@ Optional member/role IDs stored locally; accepted creators can preview verified 
 ## 0.3.5 — Creator Hub / Lobby Night concurrency
 
 Confirmation-time worker/client guards prevent recording delivery intent for an operation blocked by another job. Role UI regression simulates timer activity during confirmation. Functional module order unchanged.
+
+## 0.3.6 — owner-requested Discord/AI management capability
+
+Reviewed single-channel/category deletion in the form and AI planning, with explicit target-ID confirmation and category child retention. No live deletion performed as test. This independent management request does not change Activity → Lobby Night → Creator Hub → Dashboard → AI analysis order. Creator role selection/source setup remains next.
