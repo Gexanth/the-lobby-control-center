@@ -93,3 +93,10 @@ Open Community → Mitmachimpulse or use the shortcut on Activity. Select an ide
 edit the draft and copy it into Discord if appropriate. Nothing is sent by the
 app. Suggestions are local rules with visible reasons, not AI analysis. Old or
 incomplete activity data only produces general ideas. No additional API calls.
+
+## Community access (0.2.5)
+
+Community tabs remain navigable before connecting. Choose or enter the server ID
+and open local data for offline planning and stored records. Use the direct
+Discord connection button for new activity captures and server analysis.
+Disconnecting retains local data; live captures stay blocked until connected.

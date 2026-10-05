@@ -2,6 +2,8 @@ from datetime import datetime,timedelta
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout
 from engagement import engagement_ideas
+from updates import DATA,read_json,UpdateError
+from lobby import snowflake
 from community import CommunityStore,CommunityError,activity_sample,parse_time
 
 class CommunityPage(QWidget):
@@ -10,6 +12,17 @@ class CommunityPage(QWidget):
         self.store=CommunityStore();layout=QVBoxLayout(self);layout.setContentsMargins(32,28,32,28)
         title=QLabel('Community');title.setObjectName('title');layout.addWidget(title)
         self.status=QLabel('Discord verbinden, um die Community dieses Servers zu öffnen.');self.status.setWordWrap(True);self.status.setTextFormat(Qt.PlainText);layout.addWidget(self.status)
+        connect=QPushButton('Discord verbinden / Verbindung prüfen');connect.clicked.connect(self.open_connection);layout.addWidget(connect)
+        row=QHBoxLayout();row.addWidget(QLabel('Server-ID für lokale Daten'))
+        self.offline_server=QComboBox();self.offline_server.setEditable(True)
+        remembered=''
+        try:remembered=str(read_json(DATA/'discord_login.json',{}).get('guild_id',''))
+        except (UpdateError,AttributeError):pass
+        ids=sorted(set(self.store.data['guilds'])|({remembered} if remembered else set()))
+        self.offline_server.addItems(ids)
+        if remembered:self.offline_server.setCurrentText(remembered)
+        row.addWidget(self.offline_server,1)
+        self.open_local=QPushButton('Lokale Daten öffnen');self.open_local.clicked.connect(self.open_offline);row.addWidget(self.open_local);layout.addLayout(row)
         self.tabs=QTabWidget();layout.addWidget(self.tabs)
         def page(name):
             w=QWidget();l=QVBoxLayout(w);self.tabs.addTab(w,name);return l
@@ -59,12 +72,21 @@ class CommunityPage(QWidget):
         hint=QLabel('Die Vorschläge werden nicht automatisch versendet. Kopiere bei Bedarf einen passenden Impuls in Discord. Keine Mitglieder pingen und keine Erfolgsgarantie.');hint.setWordWrap(True);e.addWidget(hint)
         self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
-        self.tabs.setEnabled(False)
+        self.tabs.setEnabled(True)
         self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.start()
+        self.bind(None)
     def bind(self,data):
         old_guild=self.guild_id;selected=self.channel.currentData();auto=self.auto_sample.isChecked()
-        self.guild_id=data['id'] if data else None;self.tabs.setEnabled(bool(data))
-        channels=[(c['name'],c['id']) for c in data.get('channels',[]) if c['type'] in (0,5)] if data else []
+        if data:
+            self.guild_id=data['id']
+            if self.offline_server.findText(self.guild_id)<0:self.offline_server.addItem(self.guild_id)
+            self.offline_server.setCurrentText(self.guild_id)
+        else:
+            try:self.guild_id=snowflake(self.offline_server.currentText().strip())
+            except ValueError:self.guild_id=None
+        self.tabs.setEnabled(True)
+        self.offline_server.setEnabled(not bool(data));self.open_local.setEnabled(not bool(data))
+        channels=[(c['name'],c['id']) for c in data.get('channels',[]) if c['type'] in (0,5)] if data else [(f'Gespeicherter Kanal · {cid}',cid) for cid in self.store.guild(self.guild_id)['activity']] if self.guild_id else []
         if channels!=self.channels or old_guild!=self.guild_id:
             self.channel.blockSignals(True);self.channel.clear()
             for name,item in channels:self.channel.addItem(name,item)
@@ -76,9 +98,26 @@ class CommunityPage(QWidget):
             self.status.setText('Community für '+data['name']);self.refresh();QTimer.singleShot(0,self.reminders)
         else:
             self.auto_sample.setChecked(False)
-            self.status.setText('Discord verbinden, um Community-Daten zu öffnen.');self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Discord nicht verbunden.');self.engagement_draft.clear();self._engagement_signature=None
-            self._night_signature=None;self._creator_signature=None
-        self.dashboard()
+            self.status.setText('Offline · lokale Daten für Server '+self.guild_id if self.guild_id else 'Tabs sind verfügbar. Für lokale Planung eine Server-ID eingeben; für Aktivität Discord verbinden.')
+            if self.guild_id:self.refresh()
+            else:
+                self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.refresh_engagement()
+                self._night_signature=None;self._creator_signature=None
+        self.refresh_connection_controls();self.dashboard()
+    def refresh_connection_controls(self):
+        client=self.host.discord_client
+        connected=bool(client and client.guild==self.guild_id)
+        self.scan.setEnabled(connected and self.host.discord_worker is None and self.channel.currentData() is not None)
+        self.auto_sample.setEnabled(connected and self.channel.currentData() is not None)
+    def open_connection(self):
+        if self.guild_id:self.host.guild_id.setText(self.guild_id)
+        self.host.stack.setCurrentIndex(2)
+    def open_offline(self):
+        if self.host.discord_client:return
+        try:snowflake(self.offline_server.currentText().strip())
+        except ValueError:self.status.setText('Bitte eine gültige 17–20-stellige Server-ID eingeben.');return
+        self.bind(None)
+
     def sync_list(self,widget,rows,signature_name,display):
         signature=repr(rows)
         if getattr(self,signature_name,None)==signature:return
@@ -90,7 +129,7 @@ class CommunityPage(QWidget):
         setattr(self,signature_name,signature)
 
     def guard(self,action):
-        if not self.guild_id:return
+        if not self.guild_id:self.status.setText('Für diese lokale Aktion zuerst eine Server-ID wählen.');return False
         try:action();self.refresh();return True
         except (CommunityError,OSError,ValueError) as exc:
             self.status.setText('Speichern fehlgeschlagen: '+str(exc));QMessageBox.warning(self,'Community',str(exc));return False
@@ -164,7 +203,9 @@ class CommunityPage(QWidget):
         self.host.community_summary.setText(f"Community: {len(g['activity'])} Kanalstichproben · {sum(n['status']=='geplant' for n in g['nights'])} geplante Lobby Nights · {len(g['creators'])} Creator\nStichproben und Planung sind lokal; keine vollständige Serveraktivitätsmessung.")
     def sample(self):
         client=self.host.discord_client;channel=self.channel.currentData();guild=self.guild_id
-        if not client or not channel or self.host.discord_worker is not None:return
+        if not client or client.guild!=guild or not channel:
+            self.status.setText('Für neue Aktivitätsdaten zuerst diesen Server mit Discord verbinden.');return
+        if self.host.discord_worker is not None:return
         self.status.setText('Aktivität wird gelesen …')
         def done(result):
             if self.guard(lambda:self.store.record_activity(guild,result)):self.status.setText('Aktivitätsstichprobe und Verlauf gespeichert.')
@@ -198,6 +239,8 @@ class CommunityPage(QWidget):
         item=self.creators.currentItem()
         if item:self.guard(lambda:self.store.remove_creator(self.guild_id,item.data(Qt.UserRole)))
     def analyze(self):
+        if not self.host.server_context or self.host.server_context['id']!=self.guild_id:
+            self.status.setText('Für die Serveranalyse zuerst die aktuelle Discord-Übersicht laden.');self.open_connection();return
         self.host.stack.setCurrentIndex(1)
         self.host.ai_input.setText('Analysiere die Serverstruktur und die verfügbaren Community-Daten. Benenne Datenlücken, drei belegte Erkenntnisse und drei priorisierte Mitmachideen für Activity System, Lobby Night und Creator Hub. Keine Kanalaktion planen; nur antworten. Keine vollständige Aktivitätsmessung behaupten.')
         self.host.ask_ai()
