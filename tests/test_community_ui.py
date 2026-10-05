@@ -184,3 +184,56 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertEqual(c.creators.count(),1)
         with patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.remove_creator()
         self.assertEqual(c.creators.count(),0);self.assertIsNone(c.creator_edit_id)
+
+    def test_creator_role_preview_cancel_confirm_and_existing_role(self):
+        from creator_roles import binding,save_binding
+        from test_creator_roles import FakeRoles,G,U,R
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;fake=FakeRoles();self.w.discord_client=Lobby('test',G,writes=True,db=self.root/'role-audit.db',transport=fake.transport)
+        self.w.show_discord({'id':G,'name':'test','channels':[],'roles':fake.roles})
+        row=c.store.save_creator(G,'Creator','https://www.twitch.tv/test','Angenommen');save_binding(c.store,G,row['id'],binding(U,R));c.refresh();c.creators.setCurrentRow(0)
+        self.assertTrue(c.creator_role_apply.isEnabled())
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.No):c.review_creator_role()
+        self.assertFalse(any(m=='PUT' for m,p in fake.calls))
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.review_creator_role()
+        self.assertEqual(sum(m=='PUT' for m,p in fake.calls),1);self.assertEqual(c.chosen_creator()['role_delivery']['state'],'confirmed')
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question') as confirm:c.review_creator_role();confirm.assert_not_called()
+        self.assertEqual(sum(m=='PUT' for m,p in fake.calls),1)
+        self.w.disconnect_discord();self.assertFalse(c.creator_role_apply.isEnabled());self.assertTrue(c.creator_link_save.isEnabled())
+
+    def test_failed_role_assignment_is_unclear_and_never_auto_retried(self):
+        from creator_roles import binding,save_binding
+        from test_creator_roles import FakeRoles,G,U,R
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;fake=FakeRoles();fake.fail=True;self.w.discord_client=Lobby('test',G,writes=True,db=self.root/'role-audit.db',transport=fake.transport)
+        self.w.show_discord({'id':G,'name':'test','channels':[],'roles':fake.roles})
+        row=c.store.save_creator(G,'Creator','https://www.twitch.tv/test','Angenommen');save_binding(c.store,G,row['id'],binding(U,R));c.refresh();c.creators.setCurrentRow(0)
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):c.review_creator_role()
+        self.assertEqual(c.chosen_creator()['role_delivery']['state'],'uncertain');c.dispatch_scheduled_poll();c.refresh()
+        self.assertEqual(sum(m=='PUT' for m,p in fake.calls),1)
+        c.chosen_creator()['status']='Bewerbung';c.refresh();self.assertFalse(c.creator_role_apply.isEnabled())
+
+    def test_creator_role_storage_failure_prevents_write(self):
+        from creator_roles import binding,save_binding
+        from test_creator_roles import FakeRoles,G,U,R
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;fake=FakeRoles();self.w.discord_client=Lobby('test',G,writes=True,db=self.root/'role-audit.db',transport=fake.transport)
+        self.w.show_discord({'id':G,'name':'test','channels':[],'roles':fake.roles})
+        row=c.store.save_creator(G,'Creator','https://www.twitch.tv/test','Angenommen');save_binding(c.store,G,row['id'],binding(U,R));c.refresh();c.creators.setCurrentRow(0)
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(QMessageBox,'question',return_value=QMessageBox.Yes),patch.object(QMessageBox,'warning'),patch.object(c.store,'save',side_effect=OSError('full')):c.review_creator_role()
+        self.assertFalse(any(m=='PUT' for m,p in fake.calls));self.assertNotIn('role_delivery',c.chosen_creator())

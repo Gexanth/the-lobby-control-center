@@ -1,4 +1,4 @@
-# Development status — 0.3.3
+# Development status — 0.3.4
 
 Community access hotfix from 0.2.5 retained: all tabs navigable offline with local server context; live actions require matching Discord connection. GitHub Actions installs the existing application requirements and runs offscreen UI regressions.
 
@@ -8,7 +8,7 @@ Poll links are copyable; results load on demand without voter/member enumeration
 
 Explicitly approved publication schedules are persisted with the exact reviewed payload. The one-minute dispatcher only sends while connected to the matching server and idle; it revalidates the saved plan before sending. Schedules can be stopped. Canceled or expired nights never send; a missed publication may catch up only before the night begins. This is desktop scheduling, not a hosted service. Unclear attempts stay blocked across restarts.
 
-Validation: 37 tests covering real UI cancel/confirm flow with fake transport, offline access, same-server binding, publication state, wrong-server prevention, save-failure rollback, option limits, duplicate prevention, unknown results, scheduled dispatch without duplicate sends, schedule persistence/cancellation/expiry and prior credentials/activity/updater paths. No real Discord writes or paid API calls executed. Native Discord behavior still requires user confirmation on an actual server.
+Validation: 44 tests covering real UI cancel/confirm flow with fake transport, offline access, same-server binding, publication state, wrong-server prevention, save-failure rollback, option limits, duplicate prevention, unknown results, scheduled dispatch without duplicate sends, schedule persistence/cancellation/expiry and prior credentials/activity/updater paths. No real Discord writes or paid API calls executed. Native Discord behavior still requires user confirmation on an actual server.
 
 0.3.1 refinement: the Dashboard shows actual planned/due/published polls and warns about expired/canceled plans or ambiguous sends. Selected schedules explicitly distinguish future, due, canceled and expired states; a minute tick updates this feedback even offline. Publish controls stay disabled for canceled/past nights. No additional requests or stored data introduced.
 
@@ -21,3 +21,9 @@ Roadmap: presentation support for Activity/Lobby Night/Creator Hub at the owner�
 0.3.3 — Creator Hub workflow: split searchable/filterable list and editing form, actual status totals, keyboard selection, new-record action, saved-link copying and confirmed removal. Editing uses the selected immutable record ID, so changing a channel link does not duplicate the creator; collisions and cross-server edits are rejected. Legacy save-by-link callers remain compatible. Failed saves/removals roll back in-memory state. Refresh preserves an unsaved draft; changing server clears the editor and filters to prevent wrong-server edits. Data format remains 1 and existing fields/IDs are retained. 37 passing tests including edit/collision/server guards, rollback, filtering, drafts, clipboard and remove confirmation; no Discord/API calls.
 
 Next Creator Hub step: optional Discord identity/role association with concrete preview and permission checks. Stream notifications require an explicitly configured verified source and are not implemented.
+
+0.3.4 — Creator Hub role linking: explicit local member/role ID mapping for saved creators. Accepted creators can request a live read-only preview, then confirm a single role assignment. Bot identity/membership, target human membership, guild, Manage Roles/Administrator and strictly lower target-role position are freshly checked before preview and again before PUT. Supports only existing non-managed roles with zero guild permission bitfield, retaining the prior adapter restriction; channel overwrites may still give role-specific access. Already-present roles send no write. PUT adds only the selected role; it does not replace others. Confirmed membership is read back after assignment. Delivery intent is persisted before writes; unclear attempts remain visible across restarts and are never auto-retried. Every later attempt first reads current membership. Local mutations are blocked during the job. Linking/removal/status changes do not revoke existing roles. IDs remain local and are excluded from AI creator context.
+
+Validation: 44 tests passed, including fake-transport permission/hierarchy/managed/privileged-role guards, changed preview, disabled writes, existing-role no-op, persistence rollback, UI cancel/confirm, unclear failure and failed intent save preventing writes. No real Discord server changes or paid API calls. Live Windows/Discord assignment still needs the owner’s runtime confirmation. No requirements/launcher/data-format changes.
+
+Next: role selection from loaded server overview and verified stream-source configuration; automatic stream announcements are still pending.

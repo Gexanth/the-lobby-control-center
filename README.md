@@ -156,3 +156,26 @@ Search and background refresh preserve the current draft; changing server
 clears the editor and filters. Save failures retain the previous stored state.
 All actions in this tab are local; no bot permission or live Discord connection
 is required. Acceptance does not assign roles or enable stream notifications.
+
+## Creator role association (0.3.4)
+
+Select a saved Creator; copy the Discord member ID and role ID using Developer
+Mode. Save the association locally. Only a saved Accepted creator can request
+Review and assign while connected to the same server. The preview shows actual
+member/role names and IDs. Cancel sends no write. Confirm assigns only that role,
+then reads membership back. Existing roles are retained; an already-present
+role performs no write. Link changes, pausing or deleting local records do not
+remove any Discord roles. No messages or stream notifications are sent.
+
+Bot needs Manage Roles (or Administrator), membership in the server and its
+highest role strictly above the selected role. Only existing non-managed roles
+with zero guild-level permission bitfield are supported. Channel overwrites
+may still grant that role access; they are not analyzed by this feature. No bulk
+member enumeration is used. Mappings and delivery state remain local and are
+excluded from the AI creator context. Unclear results are stored; there are no
+automatic retries. A later user-triggered check reads membership before asking
+for another assignment. A successful readback describes that moment, not a
+permanent guarantee that a moderator will not later remove the role.
+
+API references: https://docs.discord.com/developers/resources/guild#add-guild-member-role
+and https://docs.discord.com/developers/topics/permissions#permission-hierarchy

@@ -47,3 +47,7 @@ Visual refinement of the existing shell and overview: grouped navigation, consis
 ## 0.3.3 — Creator Hub
 
 Bewerbung/Angenommen/Pausiert filtering, search, status counts, explicit editing/new-record flow, safe ID-based link changes and confirmed removal implemented. Offline server-scoped records retained; no live roles or stream status claimed. Next: optional member/role mapping with reviewed permission-aware actions; stream notification sources still need configuration. Dashboard analytics and expanded AI analysis remain later stages.
+
+## 0.3.4 — Creator Hub: reviewed role association
+
+Optional member/role IDs stored locally; accepted creators can preview verified human member/role names and explicitly assign one existing role. Permission/hierarchy checks are refreshed immediately before execution, result read back, unknown delivery retained without auto-retry. Only non-managed roles with zero guild permission bitfield are supported; channel overwrites are not analyzed. Local status changes/removal never revoke roles. Stream notifications remain pending, require a configured verified source. Next: easier role selection and source setup.

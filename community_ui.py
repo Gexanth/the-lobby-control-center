@@ -3,6 +3,7 @@ from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
 from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
+from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked
 from engagement import engagement_ideas
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
@@ -80,10 +81,20 @@ class CommunityPage(QWidget):
         form.addWidget(QLabel('Twitch- oder YouTube-Kanallink'));self.creator_url=QLineEdit();self.creator_url.setPlaceholderText('https://www.twitch.tv/kanal');form.addWidget(self.creator_url)
         form.addWidget(QLabel('Bearbeitungsstand'));self.creator_status=QComboBox();self.creator_status.addItems(['Bewerbung','Angenommen','Pausiert']);form.addWidget(self.creator_status)
         self.creator_save=QPushButton('Bewerbung speichern');self.creator_save.setObjectName('primary');self.creator_save.clicked.connect(self.add_creator);form.addWidget(self.creator_save)
-        b=QPushButton('Neue Bewerbung beginnen');b.clicked.connect(self.new_creator);form.addWidget(b)
+        self.creator_new=QPushButton('Neue Bewerbung beginnen');self.creator_new.clicked.connect(self.new_creator);form.addWidget(self.creator_new)
         self.creator_copy=QPushButton('Gespeicherten Kanallink kopieren');self.creator_copy.clicked.connect(self.copy_creator_link);form.addWidget(self.creator_copy)
         self.creator_remove=QPushButton('Ausgewählten Creator entfernen');self.creator_remove.clicked.connect(self.remove_creator);form.addWidget(self.creator_remove)
-        note=QLabel('Statusänderungen bleiben lokal. Rollenvergabe und Stream-Benachrichtigungen sind noch nicht verbunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns);c.addStretch()
+        note=QLabel('Statusänderungen bleiben lokal. Rollenvergabe und Stream-Benachrichtigungen sind noch nicht verbunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns)
+        role_frame=QFrame();self.creator_role_frame=role_frame;role_frame.setObjectName('card');role_form=QVBoxLayout(role_frame);role_form.setContentsMargins(18,18,18,18)
+        title=QLabel('Discord-Rolle verknüpfen');title.setObjectName('cardTitle');role_form.addWidget(title)
+        hint=QLabel('Nur für gespeicherte, angenommene Creator. IDs in Discord mit aktiviertem Entwicklermodus kopieren. Eine Verknüpfung allein vergibt keine Rolle.');hint.setWordWrap(True);role_form.addWidget(hint)
+        row=QHBoxLayout();member_column=QVBoxLayout();member_column.addWidget(QLabel('Discord-Mitglieds-ID'))
+        self.creator_member_id=QLineEdit();self.creator_member_id.setPlaceholderText('17–20-stellige Mitglieds-ID');member_column.addWidget(self.creator_member_id);row.addLayout(member_column)
+        role_column=QVBoxLayout();role_column.addWidget(QLabel('Discord-Rollen-ID'))
+        self.creator_role_id=QLineEdit();self.creator_role_id.setPlaceholderText('17–20-stellige Rollen-ID');role_column.addWidget(self.creator_role_id);row.addLayout(role_column);role_form.addLayout(row)
+        row=QHBoxLayout();self.creator_link_save=QPushButton('Verknüpfung lokal speichern');self.creator_link_save.clicked.connect(self.save_creator_link);row.addWidget(self.creator_link_save)
+        self.creator_role_apply=QPushButton('Rolle prüfen und zuweisen');self.creator_role_apply.clicked.connect(self.review_creator_role);row.addWidget(self.creator_role_apply);role_form.addLayout(row)
+        self.creator_role_status=QLabel('Keine Verknüpfung ausgewählt.');self.creator_role_status.setWordWrap(True);self.creator_role_status.setTextFormat(Qt.PlainText);role_form.addWidget(self.creator_role_status);c.addWidget(role_frame);c.addStretch()
         self.creator_search.textChanged.connect(self.refresh_creators);self.creator_filter.currentTextChanged.connect(self.refresh_creators)
         x=page('Serveranalyse')
         info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. OpenAI-API-Schlüssel unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
@@ -151,6 +162,7 @@ class CommunityPage(QWidget):
         self.poll_unschedule.setEnabled(self.host.discord_worker is None)
         self.poll_results.setEnabled(connected and self.host.discord_worker is None and state=='sent')
         self.poll_link.setEnabled(state=='sent');self.poll_reset.setVisible(state in ('sending','uncertain'))
+        self.refresh_creator_role_controls()
     def open_connection(self):
         if self.guild_id:self.host.guild_id.setText(self.guild_id)
         self.host.stack.setCurrentIndex(2)
@@ -379,12 +391,15 @@ class CommunityPage(QWidget):
         self.creator_matches.setText(f'{len(filtered)} von {len(rows)} Creator angezeigt' if filtered else 'Keine Treffer. Suche/Filter ändern oder eine Bewerbung hinzufügen.')
         self.creator_save.setEnabled(bool(self.guild_id));chosen=bool(self.creators.currentItem())
         self.creator_copy.setEnabled(chosen);self.creator_remove.setEnabled(chosen)
+        self.refresh_creator_role_controls()
     def new_creator(self):
         self.creator_edit_id=None;self.creator_edit_guild=None
         self.creator_name.clear();self.creator_url.clear();self.creator_status.setCurrentIndex(0)
         self.creator_editor_title.setText('Neue Bewerbung');self.creator_save.setText('Bewerbung speichern')
         self.creators.setCurrentRow(-1);self.creator_copy.setEnabled(False);self.creator_remove.setEnabled(False)
+        if hasattr(self,'creator_member_id'):self.creator_member_id.clear();self.creator_role_id.clear();self.creator_role_status.setText('Keine Verknüpfung ausgewählt.');self.refresh_creator_role_controls()
     def add_creator(self):
+        if self.host.discord_worker is not None:return
         if not self.guild_id:self.status.setText('Zuerst eine Server-ID für lokale Bewerbungen auswählen.');return
         if self.creator_edit_id and self.creator_edit_guild!=self.guild_id:self.status.setText('Server gewechselt. Bewerbung erneut auswählen.');return
         url=self.creator_url.text().strip()
@@ -406,6 +421,10 @@ class CommunityPage(QWidget):
         self.creator_edit_id=row['id'];self.creator_edit_guild=self.guild_id
         self.creator_name.setText(row['name']);self.creator_url.setText(row['url']);self.creator_status.setCurrentText(row['status'])
         self.creator_editor_title.setText('Creator bearbeiten');self.creator_save.setText('Änderungen speichern')
+        link=row.get('discord_link',{});self.creator_member_id.setText(link.get('member_id',''));self.creator_role_id.setText(link.get('role_id',''))
+        state=row.get('role_delivery',{}).get('state')
+        self.creator_role_status.setText('Letzter Versand unklar. Erneut prüfen liest zuerst den Mitgliedsstatus.' if state in ('sending','uncertain') else 'Zuletzt bestätigt. Erneut prüfen liest den aktuellen Mitgliedsstatus.' if state=='confirmed' else 'Vor der Vergabe Verknüpfung speichern und Rechte prüfen.')
+        self.refresh_creator_role_controls()
     def copy_creator_link(self):
         item=self.creators.currentItem()
         if not item or not self.guild_id:return
@@ -414,12 +433,63 @@ class CommunityPage(QWidget):
             from PySide6.QtWidgets import QApplication
             QApplication.clipboard().setText(row['url']);self.status.setText('Gespeicherter Kanallink kopiert.')
     def remove_creator(self):
+        if self.host.discord_worker is not None:return
         item=self.creators.currentItem()
         if not item or not self.guild_id:return
         row=next((x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole)),None)
         if not row:return
         if QMessageBox.question(self,'Creator entfernen',row['name']+' aus dieser lokalen Übersicht entfernen? Discord-Rollen bleiben unverändert.',QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
         if self.guard(lambda:self.store.remove_creator(self.guild_id,row['id'])):self.new_creator();self.status.setText('Creator aus der lokalen Übersicht entfernt.')
+    def chosen_creator(self):
+        item=self.creators.currentItem()
+        return next((r for r in self.store.guild(self.guild_id)['creators'] if item and r['id']==item.data(Qt.UserRole)),None) if self.guild_id else None
+    def refresh_creator_role_controls(self):
+        if not hasattr(self,'creator_role_apply'):return
+        row=self.chosen_creator();idle=self.host.discord_worker is None
+        self.creator_link_save.setEnabled(bool(row) and idle)
+        self.creator_save.setEnabled(bool(self.guild_id) and idle);self.creator_remove.setEnabled(bool(row) and idle)
+        for widget in (self.creators,self.creator_new,self.creator_search,self.creator_filter):widget.setEnabled(idle)
+        for widget in (self.creator_member_id,self.creator_role_id):widget.setEnabled(bool(row) and idle)
+        client=self.host.discord_client
+        self.creator_role_apply.setEnabled(bool(row and row['status']=='Angenommen' and row.get('discord_link') and client and client.guild==self.guild_id and idle))
+    def save_creator_link(self):
+        row=self.chosen_creator()
+        if not row or self.host.discord_worker is not None:return
+        try:link=binding(self.creator_member_id.text().strip(),self.creator_role_id.text().strip())
+        except ValueError as exc:self.creator_role_status.setText(str(exc));return
+        if self.guard(lambda:save_binding(self.store,self.guild_id,row['id'],link)):
+            self.creator_role_status.setText('Verknüpfung lokal gespeichert. Keine Discord-Rolle geändert. Alte Rollen werden beim Ändern einer Verknüpfung nicht entfernt.')
+    def review_creator_role(self):
+        row=self.chosen_creator();client=self.host.discord_client
+        if self.host.discord_worker is not None:return
+        if not row or row['status']!='Angenommen' or not row.get('discord_link') or not client or client.guild!=self.guild_id:
+            self.creator_role_status.setText('Angenommenen Creator verknüpfen und mit seinem Server verbinden.');return
+        guild=self.guild_id;item=row['id'];link=deepcopy(row['discord_link'])
+        if link!=dict(member_id=self.creator_member_id.text().strip(),role_id=self.creator_role_id.text().strip()):
+            self.creator_role_status.setText('Geänderte Verknüpfung zuerst lokal speichern.');return
+        self.creator_role_status.setText('Mitglied, Rolle und Bot-Rechte werden gelesen …')
+        def reviewed(plan):
+            current=self.chosen_creator()
+            if self.guild_id!=guild or not current or current['id']!=item or current.get('discord_link')!=link or current['status']!='Angenommen':
+                self.creator_role_status.setText('Auswahl geändert. Erneut prüfen.');return
+            if plan['has_role']:
+                if self.guard(lambda:delivery(self.store,guild,item,link,'confirmed')):self.creator_role_status.setText('Rolle ist bereits vorhanden. Keine Änderung gesendet.')
+                return
+            text='Server: '+guild+'\nCreator: '+current['name']+'\nDiscord-Mitglied: '+plan['member_name']+' ('+link['member_id']+')\nRolle: '+plan['role_name']+' ('+link['role_id']+')\n\nDiese bestehende Rolle jetzt zuweisen? Andere Rollen bleiben erhalten. Keine Nachricht oder Benachrichtigung wird gesendet.'
+            if QMessageBox.question(self,'Creator-Rolle zuweisen',text,QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:
+                self.creator_role_status.setText('Rollenvergabe abgebrochen. Keine Discord-Änderung gesendet.');return
+            if not self.guard(lambda:delivery(self.store,guild,item,link,'sending')):return
+            self.creator_role_status.setText('Bestätigte Rollenvergabe wird erneut geprüft und ausgeführt …')
+            def done(result):
+                if self.guard(lambda:delivery(self.store,guild,item,link,'confirmed')):self.creator_role_status.setText('Rolle beim Mitglied bestätigt.'+(' '+result['audit_warning'] if result.get('audit_warning') else ''))
+                else:self.creator_role_status.setText('Status konnte nicht gespeichert werden. Vor Wiederholung Mitglied prüfen.')
+            def failed(error):
+                try:delivery(self.store,guild,item,link,'uncertain')
+                except (OSError,CommunityError):pass
+                self.creator_role_status.setText(error+' Versand unklar; kein automatischer Neuversand. Erneut prüfen liest den Mitgliedsstatus.')
+            self.host.run_discord_job(lambda:assign_checked(client,plan),done,failed)
+        self.host.run_discord_job(lambda:checked_plan(client,guild,link),reviewed,self.creator_role_status.setText)
+
     def analyze(self):
         if not self.host.server_context or self.host.server_context['id']!=self.guild_id:
             self.status.setText('Für die Serveranalyse zuerst die aktuelle Discord-Übersicht laden.');self.open_connection();return
