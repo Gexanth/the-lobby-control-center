@@ -44,14 +44,33 @@ class CommunityPage(QWidget):
         self.tabs.setEnabled(False)
         self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.start()
     def bind(self,data):
-        self.guild_id=data['id'] if data else None;self.tabs.setEnabled(bool(data));self.channel.clear()
+        old_guild=self.guild_id;selected=self.channel.currentData();auto=self.auto_sample.isChecked()
+        self.guild_id=data['id'] if data else None;self.tabs.setEnabled(bool(data))
+        channels=[(c['name'],c['id']) for c in data.get('channels',[]) if c['type'] in (0,5)] if data else []
+        if channels!=self.channels or old_guild!=self.guild_id:
+            self.channel.blockSignals(True);self.channel.clear()
+            for name,item in channels:self.channel.addItem(name,item)
+            index=self.channel.findData(selected)
+            if old_guild==self.guild_id and index>=0:self.channel.setCurrentIndex(index)
+            self.channel.blockSignals(False);self.channels=channels
+            self.auto_sample.setChecked(auto and old_guild==self.guild_id and index>=0)
         if data:
-            for c in data['channels']:
-                if c['type'] in (0,5):self.channel.addItem(c['name'],c['id'])
             self.status.setText('Community für '+data['name']);self.refresh();QTimer.singleShot(0,self.reminders)
         else:
+            self.auto_sample.setChecked(False)
             self.status.setText('Discord verbinden, um Community-Daten zu öffnen.');self.activity.clear();self.nights.clear();self.creators.clear()
+            self._night_signature=None;self._creator_signature=None
         self.dashboard()
+    def sync_list(self,widget,rows,signature_name,display):
+        signature=repr(rows)
+        if getattr(self,signature_name,None)==signature:return
+        selected=widget.currentItem().data(Qt.UserRole) if widget.currentItem() else None
+        widget.clear()
+        for row in rows:
+            widget.addItem(display(row));item=widget.item(widget.count()-1);item.setData(Qt.UserRole,row['id'])
+            if row['id']==selected:widget.setCurrentItem(item)
+        setattr(self,signature_name,signature)
+
     def guard(self,action):
         if not self.guild_id:return
         try:action();self.refresh()
@@ -59,13 +78,12 @@ class CommunityPage(QWidget):
     def refresh(self):
         if not self.guild_id:return
         g=self.store.guild(self.guild_id)
-        self.activity.setPlainText('\n\n'.join(f"Kanal {s['channel_id']}\n{s['messages']} Nachrichten von {s['participants']} Personen in einer Stichprobe von {s['sample_size']} Nachrichten\nErfasst: {s['checked_at']}\nZeitraum: {s['oldest'] or 'unbekannt'} bis {s['latest'] or 'unbekannt'}" for s in g['activity'].values()) or 'Noch keine Aktivitätsstichprobe erfasst.')
-        self.nights.clear()
-        for n in g['nights']:
-            self.nights.addItem(f"{n['title']} · {parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')} · {n['status']}");self.nights.item(self.nights.count()-1).setData(Qt.UserRole,n['id'])
-        self.creators.clear()
-        for c in g['creators']:
-            self.creators.addItem(f"{c['name']} · {c['status']}");self.creators.item(self.creators.count()-1).setData(Qt.UserRole,c['id'])
+        names=dict((item,name) for name,item in self.channels)
+        def local(value):return parse_time(value).astimezone().strftime('%d.%m. %H:%M') if value else 'unbekannt'
+        text='\n\n'.join(f"#{names.get(s['channel_id'],'Nicht mehr verfügbar')}\n{s['messages']} Nachrichten · {s['participants']} Personen\nStichprobe: {s['sample_size']} Nachrichten · zuletzt geprüft {local(s['checked_at'])}\nZeitraum: {local(s['oldest'])} – {local(s['latest'])}" for s in g['activity'].values()) or 'Noch keine Aktivitätsstichprobe. Wähle einen Kanal und klicke auf Erfassen.'
+        if self.activity.toPlainText()!=text:self.activity.setPlainText(text)
+        self.sync_list(self.nights,g['nights'],'_night_signature',lambda n:f"{n['title']} · {parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')} · {n['status']}")
+        self.sync_list(self.creators,g['creators'],'_creator_signature',lambda c:f"{c['name']} · {c['status']}")
         self.dashboard()
     def dashboard(self):
         if not hasattr(self.host,'community_summary'):return

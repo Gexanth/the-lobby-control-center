@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 from datetime import datetime
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
+from PySide6.QtGui import QShortcut,QKeySequence
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QHBoxLayout,QVBoxLayout,
-    QCheckBox,QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
+    QScrollArea,QProgressBar,QCheckBox,QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
 from storage import TaskStore, STATUSES
 from lobby import Lobby, DiscordError
 from channel_actions import ChannelActions
@@ -64,21 +65,61 @@ class MainWindow(QMainWindow):
         side=QVBoxLayout(sidebar); side.setContentsMargins(18,24,18,24)
         brand=QLabel('THE LOBBY\nCONTROL CENTER'); brand.setObjectName('brand'); side.addWidget(brand); side.addSpacing(25)
         self.stack=QStackedWidget()
+        self.nav_buttons=[]
         nav=[('⌂  Dashboard',self.dashboard()),('✦  Assistent',self.assistant()),('◈  Discord',self.discord()),('✓  Aufgaben',self.tasks()),('⚡  Automationen',self.automations()),('⚙  Einstellungen',self.settings()),('↻  Updates',self.update_page()),('◉  Community',self.community_page())]
         for i,(name,page) in enumerate(nav):
-            b=QPushButton(name); b.setObjectName('nav'); b.clicked.connect(lambda _,x=i:self.stack.setCurrentIndex(x)); side.addWidget(b); self.stack.addWidget(page)
+            b=QPushButton(name); b.setObjectName('nav');b.setCheckable(True);b.setToolTip(f'{name.strip()} · Strg+{i+1}')
+            b.clicked.connect(lambda _,x=i:self.stack.setCurrentIndex(x));side.addWidget(b);self.nav_buttons.append(b)
+            scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.NoFrame);scroll.setWidget(page);self.stack.addWidget(scroll)
+            shortcut=QShortcut(QKeySequence(f'Ctrl+{i+1}'),self);shortcut.activated.connect(lambda x=i:self.stack.setCurrentIndex(x))
+        self.stack.currentChanged.connect(self.mark_navigation);self.mark_navigation(0)
         side.addStretch(); version=QLabel('Version '+VERSION); version.setObjectName('muted'); side.addWidget(version)
         shell.addWidget(sidebar); shell.addWidget(self.stack,1)
+        self.connection_badge=QLabel('Discord nicht verbunden');self.statusBar().addWidget(self.connection_badge,1)
+        self.busy_indicator=QProgressBar();self.busy_indicator.setRange(0,0);self.busy_indicator.setMaximumWidth(130);self.busy_indicator.hide();self.statusBar().addPermanentWidget(self.busy_indicator)
         self.apply_style()
         self.refresh_tasks()
 
     def card(self,title,text):
         f=QFrame(); f.setObjectName('card'); l=QVBoxLayout(f); t=QLabel(title); t.setObjectName('cardTitle'); d=QLabel(text); d.setWordWrap(True); d.setObjectName('muted'); l.addWidget(t); l.addWidget(d); return f
 
+    def mark_navigation(self,index):
+        for i,b in enumerate(self.nav_buttons):b.setChecked(i==index)
+
+    def metric_card(self,title):
+        f=QFrame();f.setObjectName('card');layout=QVBoxLayout(f)
+        label=QLabel(title);label.setObjectName('muted');value=QLabel('—');value.setObjectName('metric');layout.addWidget(label);layout.addWidget(value)
+        return f,value
+
     def dashboard(self):
-        p=Page('Dashboard','Zentrale für The Lobby, Aufgaben und den integrierten Assistenten.')
-        row=QHBoxLayout(); row.addWidget(self.card('Discord','Verbindung unter Discord prüfen; Kanäle und Rollen anzeigen.')); row.addWidget(self.card('Aufgaben','Aufträge lokal speichern und verwalten.')); row.addWidget(self.card('Assistent','Befehle natürlich formulieren.'))
-        p.layout.addLayout(row); self.summary=QLabel(); p.layout.addWidget(self.summary); p.layout.addWidget(self.card('Aktueller Stand','Aufträge speichern, bearbeiten und für die Übergabe in ChatGPT kopieren. Discord-Übersicht verfügbar. Kanäle erstellen, umbenennen und verschieben unter Discord. KI-Aufträge jetzt unter Assistent; API-Schlüssel in Einstellungen eingeben.')); self.community_summary=QLabel('Community: Discord noch nicht verbunden.');self.community_summary.setWordWrap(True);p.layout.addWidget(self.community_summary);p.layout.addStretch(); return p
+        p=Page('Dashboard','Serverstatus und Community auf einen Blick.')
+        row=QHBoxLayout();self.dashboard_values={}
+        for title,key in [('Mitglieder · ungefähr','members'),('Jetzt online · ungefähr','online'),('Kanäle','channels')]:
+            card,value=self.metric_card(title);self.dashboard_values[key]=value;row.addWidget(card)
+        p.layout.addLayout(row)
+        self.dashboard_connection=QLabel('Verbinde deinen Bot unter Discord, um aktuelle Serverwerte zu laden.');self.dashboard_connection.setWordWrap(True);p.layout.addWidget(self.dashboard_connection)
+        row=QHBoxLayout()
+        for text,index,tab in [('Discord verbinden',2,None),('Aktivität ansehen',7,0),('Lobby Night planen',7,1),('Creator verwalten',7,2)]:
+            button=QPushButton(text);button.clicked.connect(lambda _,i=index,t=tab:self.open_page(i,t));row.addWidget(button)
+        p.layout.addLayout(row)
+        p.layout.addWidget(self.card('Community','Aktivität erfassen, Lobby Nights planen und Creator-Bewerbungen verwalten.'))
+        self.community_summary=QLabel('Community: Discord noch nicht verbunden.');self.community_summary.setWordWrap(True);p.layout.addWidget(self.community_summary)
+        p.layout.addWidget(QLabel('Aufgaben'));self.summary=QLabel();self.summary.setWordWrap(True);p.layout.addWidget(self.summary)
+        p.layout.addStretch();return p
+
+    def open_page(self,index,tab=None):
+        self.stack.setCurrentIndex(index)
+        if tab is not None:self.community.tabs.setCurrentIndex(tab)
+
+    def refresh_dashboard(self,data=None):
+        if not data:
+            for value in self.dashboard_values.values():value.setText('—')
+            self.dashboard_connection.setText('Discord nicht verbunden.');self.connection_badge.setText('Discord nicht verbunden.');return
+        values={'members':data.get('approximate_members_including_bots'),'online':data.get('online_now_not_weekly_activity'),'channels':len(data.get('channels',[]))}
+        for key,value in values.items():self.dashboard_values[key].setText(str(value) if value is not None else '—')
+        name=data.get('name','Discord');now=datetime.now().strftime('%H:%M')
+        self.dashboard_connection.setText(f'{name} · Stand {now} · Übersicht unter Discord aktualisieren')
+        self.connection_badge.setText('Verbunden: '+name)
 
     def assistant(self):
         p=Page('Assistent','KI-Aufträge besprechen und Kanalaktionen vorbereiten. Die Ausführung erfolgt nach einer konkreten Vorschau.')
@@ -185,6 +226,9 @@ class MainWindow(QMainWindow):
         return p
 
     def set_discord_busy(self, busy):
+        self.busy_indicator.setVisible(busy)
+        self.statusBar().showMessage('Vorgang läuft …' if busy else 'Bereit')
+        if hasattr(self,'community'):self.community.scan.setEnabled(not busy)
         for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.forget_key_button):
             widget.setEnabled(not busy)
         if hasattr(self,'updates'):
@@ -258,11 +302,13 @@ class MainWindow(QMainWindow):
         self.discord_output.clear();self.channel_actions.populate([])
         self.discord_status.setText('Verbindung getrennt.')
         if hasattr(self,'community'):self.community.bind(None)
+        self.refresh_dashboard()
         self.channel_actions.result.setText('Bitte zuerst die Serverübersicht laden.')
 
     def show_discord(self, data):
         self.server_context=data
         if hasattr(self,'community'):self.community.bind(data)
+        self.refresh_dashboard(data)
         self.discord_status.setText(f"Verbunden: {data['name']} • Server-ID: {data['id']}")
         channels=data.get('channels',[])
         self.channel_actions.populate(channels)
@@ -394,6 +440,17 @@ class MainWindow(QMainWindow):
         #subtitle,#muted { color:#9099aa; }
         #nav { text-align:left; padding:12px 14px; border:0; border-radius:8px; background:transparent; color:#cdd5e5; }
         #nav:hover { background:#1a2030; }
+        #nav:checked { background:#262345; color:#c7baff; border-left:3px solid #a78bfa; }
+        #metric { font-size:36px; font-weight:800; color:#c7baff; }
+        QPushButton { background:#202638; border:1px solid #343b50; border-radius:8px; padding:9px 12px; }
+        QPushButton:hover { background:#2c344b; }
+        QTabWidget::pane { border:1px solid #293144; border-radius:8px; }
+        QTabBar::tab { background:#141b29; padding:10px 13px; color:#aab4cb; }
+        QTabBar::tab:selected { background:#292442; color:#ddd0ff; }
+        QScrollArea { border:0; }
+        QStatusBar { background:#10141d; color:#aab4cb; }
+        QProgressBar { border:0; background:#1a2030; max-height:6px; }
+        QProgressBar::chunk { background:#a78bfa; }
         #card { background:#121722; border:1px solid #252c3b; border-radius:12px; padding:12px; }
         #card QLabel { background:transparent; }
         QPushButton:disabled { color:#737b8c; }

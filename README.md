@@ -58,3 +58,12 @@ provides local planning, copyable voting text and local reminders. Creator Hub
 provides local application management. Dashboard shows stored community counts.
 Server analysis uses your configured OpenAI API key on explicit request.
 See ROADMAP.md for remaining Discord integrations and data limitations.
+
+## Interface improvements (0.2.1)
+
+Dashboard shows the last fetched member/online counts and channels, with direct
+community shortcuts. The active sidebar section is highlighted. Ctrl+1 through
+Ctrl+8 navigate between pages. Scrollable pages accommodate smaller windows.
+Status bar shows the connected server and background operations. Activity polling
+survives same-server overview refreshes; unchanged Creator/Night lists preserve
+selection and are not rebuilt. Server metrics are snapshots, not live streaming.
