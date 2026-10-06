@@ -206,3 +206,6 @@ Discord or refresh before trying again; no automatic retry. Local task,
 community and credential records are preserved, including past activity data.
 
 API reference: https://docs.discord.com/developers/resources/channel#deleteclose-channel
+# Activity feedback in 0.3.7
+
+Community → Activity System shows the capture date and the 24h **before that capture**, rather than implying that stored values describe the current 24 hours. After six hours, the capture is marked stale and participation suggestions use general ideas. Feedback refreshes once per minute while the app runs, including offline, without new Discord requests; edited drafts remain intact. Limited/unconfirmed coverage, future dates and unusable values are explicitly identified. For a new capture the bot needs View Channel and Read Message History in the selected channel. Counts cover accessible messages only, not the whole server or Voice activity.

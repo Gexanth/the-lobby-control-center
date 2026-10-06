@@ -1,4 +1,12 @@
-# Development status — 0.3.6
+# Development status — 0.3.7
+
+0.3.7 — Activity System freshness: explicitly label counts as the 24h before the stored capture, with capture date/time. Separate current, older-than-six-hours, limited/unconfirmed, invalid and future-dated feedback. Reuse one quality classifier for activity feedback and local participation suggestions. Existing minute timer updates freshness and falls back to general ideas when a snapshot ages, even offline, without additional Discord/API calls. Edited drafts are retained; unchanged history cells are reused. Invalid timestamps/counts never drive inactivity recommendations. Saved snapshots/settings/tasks/credentials and data format are unchanged. No new dependencies or starter/update-protocol changes.
+
+Validation: all 54 tests passed with PySide6 installed and offscreen UI enabled, including six-hour boundary, malformed/future captures, unconfirmed empty data, timer aging without requests, draft preservation, unchanged history cells and all deletion/roles/polls/updater regressions. No real Discord server writes or paid requests. Screenshot is the actual empty offline Activity page, without invented activity. Source compilation and local ZIP/manifest/checksum checks completed before publication.
+
+Publication recovery: 0.3.6 commit remains in main, but its release job was cancelled without a runner or any executed steps; latest published release at start of this iteration was 0.3.5. The unchanged release workflow is retriggered by the 0.3.7 version bump; this package also includes the tested 0.3.6 deletion feature. Actual release outcome must be checked separately; do not claim availability from a commit alone.
+
+Next ordered-roadmap step: Activity System permission/setup feedback based on actual read failures; then build on the existing Lobby Night proposal/poll flow. Creator stream sources and Dashboard analytics remain pending.
 
 Community access hotfix from 0.2.5 retained: all tabs navigable offline with local server context; live actions require matching Discord connection. GitHub Actions installs the existing application requirements and runs offscreen UI regressions.
 

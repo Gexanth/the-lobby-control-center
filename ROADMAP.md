@@ -20,6 +20,12 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 Keep the existing source-update protocol, dependencies, task data and credential storage compatible. Validate before publishing; report exact completed scope and remaining limits to the owner.
 
+## 0.3.7 — Activity System reliability
+
+Returned to the first roadmap stage for a concrete accuracy gap: stored measurements now show their capture timestamp and explicitly refer to the 24h before that capture. Current, stale (>6h), limited/unconfirmed, invalid and future-dated measurements are distinguished. Existing minute timer refreshes age feedback and participation recommendations without new requests; edited drafts and historical snapshots remain intact. An unconfirmed empty response is not displayed as a reliable zero. No fabricated activity or new sources. Runtime for new captures remains a connected bot with View Channel and Read Message History in the selected channel; local feedback also works offline.
+
+Next: clear permission/setup guidance using actual capture errors. Then continue Lobby Night → Creator Hub → Dashboard → AI analysis in the authorized order. Existing later-stage foundations are retained.
+
 ## 0.2.2 progress
 
 Selected-channel history, last-24h counts within the sample, explicit sample-cap warning, bounded storage and improved save-error handling implemented. These are overlapping sample snapshots, not a complete measurement of server activity. Full historical collection and Discord voting remain pending.

@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime,timezone,timedelta
-from engagement import engagement_ideas
+from engagement import engagement_ideas,activity_quality
 class EngagementTests(unittest.TestCase):
     def sample(self,people=2,messages=7,coverage='window_reached',age=0):
         return {'checked_at':(self.now-timedelta(hours=age)).isoformat(),'messages_24h':messages,'participants_24h':people,'coverage':coverage}
@@ -18,3 +18,15 @@ class EngagementTests(unittest.TestCase):
         sample=self.sample();sample['token']='private-token';sample['author_id']='secret-person'
         result=repr(engagement_ideas(sample,self.now))
         self.assertNotIn('private-token',result);self.assertNotIn('secret-person',result)
+    def test_quality_boundaries_and_invalid_data(self):
+        self.assertEqual(activity_quality(self.sample(age=6),self.now),'fresh')
+        self.assertEqual(activity_quality(self.sample(age=6.01),self.now),'stale')
+        self.assertEqual(activity_quality(self.sample(age=-1),self.now),'future')
+        for stamp in (None,'not-a-date',{},999):
+            sample=self.sample();sample['checked_at']=stamp
+            self.assertEqual(activity_quality(sample,self.now),'invalid')
+            self.assertEqual(engagement_ideas(sample,self.now)['kind'],'general')
+        for messages,people in ((True,1),(1,True),(-1,0),(1,2)):
+            sample=self.sample(people,messages)
+            self.assertEqual(activity_quality(sample,self.now),'invalid')
+        self.assertEqual(activity_quality(self.sample(0,0,'empty_or_no_history_access'),self.now),'limited')

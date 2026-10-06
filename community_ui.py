@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QP
 from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked
-from engagement import engagement_ideas
+from engagement import engagement_ideas,activity_quality
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
 from community import CommunityStore,CommunityError,activity_sample,parse_time
@@ -38,6 +38,7 @@ class CommunityPage(QWidget):
         a.addWidget(self.auto_sample)
         self.activity_timer=QTimer(self);self.activity_timer.setInterval(15*60*1000);self.activity_timer.timeout.connect(lambda:self.sample() if self.auto_sample.isChecked() else None);self.activity_timer.start()
         self.activity_metrics=QLabel('Noch keine Daten für diesen Kanal.');self.activity_metrics.setWordWrap(True);a.addWidget(self.activity_metrics)
+        self.activity_quality=QLabel();self.activity_quality.setWordWrap(True);self.activity_quality.setTextFormat(Qt.PlainText);a.addWidget(self.activity_quality)
         b=QPushButton('Passenden Mitmachimpuls ansehen');b.clicked.connect(lambda:self.tabs.setCurrentIndex(4));a.addWidget(b)
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
@@ -111,7 +112,7 @@ class CommunityPage(QWidget):
         self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
         self.tabs.setEnabled(True)
-        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
+        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.refresh_activity_feedback);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
         self.bind(None)
     def bind(self,data):
         old_guild=self.guild_id;selected=self.channel.currentData();auto=self.auto_sample.isChecked()
@@ -148,6 +149,7 @@ class CommunityPage(QWidget):
             if self.guild_id:self.refresh()
             else:
                 self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.refresh_engagement()
+                self.activity_quality.setText('Noch keine Messung. Für neue Daten diesen Server verbinden.')
                 self._night_signature=None;self._creator_signature=None
         self.refresh_creators();self.refresh_connection_controls();self.dashboard()
     def refresh_connection_controls(self):
@@ -199,14 +201,28 @@ class CommunityPage(QWidget):
         if hasattr(self,'auto_sample'):self.auto_sample.setChecked(False)
         if hasattr(self,'history_table'):self.refresh_activity()
         if hasattr(self,'engagement_select'):self.refresh_engagement()
+    def refresh_activity_feedback(self):
+        self.refresh_activity();self.refresh_engagement()
     def refresh_activity(self):
         channel=self.channel.currentData()
         g=self.store.guild(self.guild_id) if self.guild_id else {}
         sample=g.get('activity',{}).get(channel)
-        def local(value):return parse_time(value).astimezone().strftime('%d.%m. %H:%M') if value else 'unbekannt'
+        def local(value):
+            try:return parse_time(value).astimezone().strftime('%d.%m. %H:%M') if value else 'unbekannt'
+            except (ValueError,TypeError):return 'ungültiger Zeitpunkt'
+        quality=activity_quality(sample)
+        self.activity_quality.setText({
+            'missing':'Noch keine Messung. Für neue Daten diesen Server verbinden.',
+            'fresh':'Aktuelle Erfassung · zugängliches 24h-Fenster oder Verlaufende erreicht. Keine vollständige Serverstatistik.',
+            'stale':'Veraltet · älter als sechs Stunden. Werte bleiben als frühere Erfassung sichtbar; vor Entscheidungen aktualisieren.',
+            'limited':'Begrenzte / unbestätigte Abdeckung · Werte sind nur eine Stichprobe. Keine verlässliche Aussage über Inaktivität.',
+            'future':'Erfassungszeitpunkt in der Zukunft · PC-Uhr prüfen und neu erfassen.',
+            'invalid':'24h-Werte / Zeitpunkt nicht verwendbar · neu erfassen. Gespeicherte Daten bleiben erhalten.'
+        }[quality])
         if sample:
-            self.activity_metrics.setText(f"Letzte 24h · erfasst: {sample.get('messages_24h','—')} Nachrichten · {sample.get('participants_24h','—')} Personen")
-            text=f"#{self.channel.currentText()} · zuletzt geprüft {local(sample['checked_at'])}\n{sample['messages']} menschliche Nachrichten in {sample['sample_size']} gelesenen Nachrichten\nErfasster Zeitraum: {local(sample['oldest'])} – {local(sample['latest'])}"
+            self.activity_metrics.setText(f"24h vor Erfassung am {local(sample.get('checked_at'))} · {sample.get('messages_24h','—')} Nachrichten · {sample.get('participants_24h','—')} Personen")
+            if quality in ('future','invalid'):self.activity_metrics.setText('Keine belastbaren aktuellen 24h-Werte · neu erfassen.')
+            text=f"#{self.channel.currentText()} · zuletzt geprüft {local(sample.get('checked_at'))}\n{sample.get('messages','—')} menschliche Nachrichten in {sample.get('sample_size','—')} gelesenen Nachrichten\nErfasster Zeitraum: {local(sample.get('oldest'))} – {local(sample.get('latest'))}"
             coverage=sample.get('coverage')
             if coverage in ('window_reached','history_end'):text+='\nZeitfenster beziehungsweise zugängliches Verlaufende erreicht.'
             elif coverage=='empty_or_no_history_access':

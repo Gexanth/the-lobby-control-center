@@ -30,6 +30,37 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertTrue(c.tabs.isEnabled());self.assertFalse(c.scan.isEnabled())
         for i in range(c.tabs.count()):c.tabs.setCurrentIndex(i);self.app.processEvents();self.assertEqual(c.tabs.currentIndex(),i)
         c.open_connection();self.assertEqual(self.w.stack.currentIndex(),2)
+
+    def test_activity_ages_without_requests_or_losing_draft(self):
+        from datetime import datetime,timezone,timedelta
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        now=datetime.now(timezone.utc)
+        sample={'channel_id':channel,'checked_at':now.isoformat(),'messages':8,'participants':2,
+                'messages_24h':8,'participants_24h':2,'sample_size':8,'oldest':now.isoformat(),
+                'latest':now.isoformat(),'coverage':'history_end'}
+        c.store.record_activity(guild,sample);c.offline_server.setCurrentText(guild);c.open_offline()
+        self.assertIn('24h vor Erfassung',c.activity_metrics.text())
+        self.assertIn('Aktuelle',c.activity_quality.text())
+        c.engagement_draft.setPlainText('Mein bearbeiteter Entwurf');c.engagement_draft.document().setModified(True)
+        history_item=c.history_table.item(0,0)
+        with patch('engagement.utcnow',return_value=now+timedelta(hours=7)),patch.object(self.w,'run_discord_job',side_effect=AssertionError('No Discord request')):
+            c.timer.timeout.emit()
+        self.assertIn('Veraltet',c.activity_quality.text());self.assertIn('sechs Stunden',c.engagement_basis.text())
+        self.assertEqual(c.engagement_select.itemData(0)['key'],'activity')
+        self.assertEqual(c.engagement_select.itemText(0),'Eine leichte Einstiegsfrage')
+        self.assertEqual(c.engagement_draft.toPlainText(),'Mein bearbeiteter Entwurf')
+        self.assertIs(c.history_table.item(0,0),history_item)
+        self.assertEqual(c.store.guild(guild)['activity'][channel],sample)
+
+    def test_unconfirmed_empty_activity_is_not_zero(self):
+        from datetime import datetime,timezone
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        c.store.record_activity(guild,{'channel_id':channel,'checked_at':datetime.now(timezone.utc).isoformat(),
+            'messages':0,'participants':0,'messages_24h':0,'participants_24h':0,'sample_size':0,
+            'oldest':None,'latest':None,'coverage':'empty_or_no_history_access'})
+        c.offline_server.setCurrentText(guild);c.open_offline()
+        self.assertIn('Keine belastbaren',c.activity_metrics.text());self.assertIn('unbestätigte',c.activity_quality.text())
+        self.assertNotIn('0 Nachrichten',c.activity_metrics.text())
     def test_offline_planning_disconnect_and_wrong_server_block(self):
         from datetime import datetime,timedelta
         c=self.w.community;guild='930828728966217728'
