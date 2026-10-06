@@ -6,6 +6,8 @@ Validation: all 54 tests passed with PySide6 installed and offscreen UI enabled,
 
 Publication recovery: 0.3.6 commit remains in main, but its release job was cancelled without a runner or any executed steps; latest published release at start of this iteration was 0.3.5. The unchanged release workflow is retriggered by the 0.3.7 version bump; this package also includes the tested 0.3.6 deletion feature. Actual release outcome must be checked separately; do not claim availability from a commit alone.
 
+Confirmed publication on 2026-10-06 at 15:21 Europe/Berlin: workflow run 37470127466 completed successfully (validation/build/publish steps all passed). Release v0.3.7 targets commit 00454f0c2dbad41c2d8bc4f75cdfd044544f7780 and both release.json and the 75,080-byte source ZIP are uploaded. Release: https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.3.7 . The prior 0.3.6 publication failure is resolved by this cumulative release. Activation remains the next start.bat launch; EXE updating remains unsupported.
+
 Next ordered-roadmap step: Activity System permission/setup feedback based on actual read failures; then build on the existing Lobby Night proposal/poll flow. Creator stream sources and Dashboard analytics remain pending.
 
 Community access hotfix from 0.2.5 retained: all tabs navigable offline with local server context; live actions require matching Discord connection. GitHub Actions installs the existing application requirements and runs offscreen UI regressions.
