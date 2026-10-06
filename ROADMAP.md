@@ -26,6 +26,10 @@ Returned to the first roadmap stage for a concrete accuracy gap: stored measurem
 
 Next: clear permission/setup guidance using actual capture errors. Then continue Lobby Night → Creator Hub → Dashboard → AI analysis in the authorized order. Existing later-stage foundations are retained.
 
+## 0.3.8 — validation supporting every roadmap stage
+
+Linux Qt runtime prerequisites and mandatory UI import/initialization added to release CI. Publication now blocks on skipped tests, so Activity/Lobby Night/Creator Hub UI regressions must actually execute. No functional roadmap reorder, Windows dependency change or live Discord test introduced.
+
 ## 0.2.2 progress
 
 Selected-channel history, last-24h counts within the sample, explicit sample-cap warning, bounded storage and improved save-error handling implemented. These are overlapping sample snapshots, not a complete measurement of server activity. Full historical collection and Discord voting remain pending.

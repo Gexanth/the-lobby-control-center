@@ -1,4 +1,6 @@
-# Development status — 0.3.7
+# Development status — 0.3.8
+
+0.3.8 — release validation hardening: review of the successful 0.3.7 workflow logs revealed 21 Qt-dependent tests skipped on the runner despite installing PySide6. All 54 tests had actually executed and passed locally. The workflow now installs Linux EGL/OpenGL runtime libraries, explicitly imports/initializes Qt and application modules, and refuses publication if any test is skipped. This changes only CI infrastructure, not Windows dependencies, starters, saved data or source updater. Cumulative package retains the 0.3.7 Activity freshness improvements and 0.3.6 reviewed deletion. Actual 0.3.8 publication outcome must be verified.
 
 0.3.7 — Activity System freshness: explicitly label counts as the 24h before the stored capture, with capture date/time. Separate current, older-than-six-hours, limited/unconfirmed, invalid and future-dated feedback. Reuse one quality classifier for activity feedback and local participation suggestions. Existing minute timer updates freshness and falls back to general ideas when a snapshot ages, even offline, without additional Discord/API calls. Edited drafts are retained; unchanged history cells are reused. Invalid timestamps/counts never drive inactivity recommendations. Saved snapshots/settings/tasks/credentials and data format are unchanged. No new dependencies or starter/update-protocol changes.
 
@@ -6,7 +8,7 @@ Validation: all 54 tests passed with PySide6 installed and offscreen UI enabled,
 
 Publication recovery: 0.3.6 commit remains in main, but its release job was cancelled without a runner or any executed steps; latest published release at start of this iteration was 0.3.5. The unchanged release workflow is retriggered by the 0.3.7 version bump; this package also includes the tested 0.3.6 deletion feature. Actual release outcome must be checked separately; do not claim availability from a commit alone.
 
-Confirmed publication on 2026-10-06 at 15:21 Europe/Berlin: workflow run 37470127466 completed successfully (validation/build/publish steps all passed). Release v0.3.7 targets commit 00454f0c2dbad41c2d8bc4f75cdfd044544f7780 and both release.json and the 75,080-byte source ZIP are uploaded. Release: https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.3.7 . The prior 0.3.6 publication failure is resolved by this cumulative release. Activation remains the next start.bat launch; EXE updating remains unsupported.
+Confirmed publication on 2026-10-06 at 15:21 Europe/Berlin: workflow run 37470127466 completed successfully, but log review found 21 skipped Qt tests; local validation did execute all 54. Release v0.3.7 targets commit 00454f0c2dbad41c2d8bc4f75cdfd044544f7780 and both release.json and the 75,080-byte source ZIP are uploaded. Release: https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.3.7 . The prior 0.3.6 publication failure is resolved by this cumulative release. Activation remains the next start.bat launch; EXE updating remains unsupported.
 
 Next ordered-roadmap step: Activity System permission/setup feedback based on actual read failures; then build on the existing Lobby Night proposal/poll flow. Creator stream sources and Dashboard analytics remain pending.
 
