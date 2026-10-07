@@ -209,3 +209,7 @@ API reference: https://docs.discord.com/developers/resources/channel#deleteclose
 # Activity feedback in 0.3.7
 
 Community → Activity System shows the capture date and the 24h **before that capture**, rather than implying that stored values describe the current 24 hours. After six hours, the capture is marked stale and participation suggestions use general ideas. Feedback refreshes once per minute while the app runs, including offline, without new Discord requests; edited drafts remain intact. Limited/unconfirmed coverage, future dates and unusable values are explicitly identified. For a new capture the bot needs View Channel and Read Message History in the selected channel. Counts cover accessible messages only, not the whole server or Voice activity.
+
+## Activity permissions in 0.3.9
+
+The Activity page shows its read-only requirements directly. In the selected Discord channel, open **Edit Channel → Permissions → bot role** and allow **View Channel** and **Read Message History** (German client: **Kanal ansehen** and **Nachrichtenverlauf anzeigen**). **Send Messages is not required.** If Discord rejects the channel lookup or message-history request, the page shows which access to check. Permission failures stop optional 15-minute retries and keep earlier samples; reconnect or capture again after correcting permissions. The app does not make a separate permission-probe request.

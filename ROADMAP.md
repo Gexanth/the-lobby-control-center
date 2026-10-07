@@ -30,6 +30,12 @@ Next: clear permission/setup guidance using actual capture errors. Then continue
 
 Linux Qt runtime prerequisites and mandatory UI import/initialization added to release CI. Publication now blocks on skipped tests, so Activity/Lobby Night/Creator Hub UI regressions must actually execute. No functional roadmap reorder, Windows dependency change or live Discord test introduced.
 
+## 0.3.9 — Activity System permission readiness
+
+The page now names the exact read-only channel prerequisites and turns actual 403/404 capture failures into endpoint-specific setup help. A successful capture confirms access. Permission failures stop optional 15-minute retrying and do not overwrite prior samples; no additional permission probe or stored permission inventory is introduced. This completes the currently scoped Activity setup-feedback step using only real request outcomes. Required at runtime: bot in the server, View Channel and Read Message History for the selected text/announcement channel; Send Messages is not needed.
+
+Next ordered step: improve Lobby Night suggestion collection and reviewed poll preparation. Continue to avoid Discord scheduled-event creation. Then Creator Hub → Dashboard → AI analysis.
+
 ## 0.2.2 progress
 
 Selected-channel history, last-24h counts within the sample, explicit sample-cap warning, bounded storage and improved save-error handling implemented. These are overlapping sample snapshots, not a complete measurement of server activity. Full historical collection and Discord voting remain pending.

@@ -1,4 +1,10 @@
-# Development status — 0.3.8
+# Development status — 0.3.9
+
+0.3.9 — Activity System permission/setup feedback: the Activity page now states the exact read-only channel prerequisites (View Channel / Kanal ansehen and Read Message History / Nachrichtenverlauf anzeigen); Send Messages is not required. Sanitized Discord 403/404 guidance is endpoint-specific, so a blocked channel lookup is distinguished from a blocked message-history request without reading or exposing Discord response bodies, headers or tokens. A successful capture visibly confirms access. A permission failure keeps existing samples untouched and turns off the optional 15-minute auto-capture to avoid repeated failing requests; transient network/rate-limit failures do not disable it. No extra Discord request, server write, stored permission data, dependency, launcher or updater change.
+
+Validation: all 57 tests passed locally with PySide6 and the offscreen UI, zero skipped. New regressions cover endpoint-specific sanitized guidance, permission-failure display, stopping auto-retry, no sample mutation and successful-access confirmation. Compilation and source ZIP/manifest/SHA256 checks are required before publication. No real Discord connection/write or paid API request used. Runtime requirement for capture: bot membership plus View Channel and Read Message History in the selected text/announcement channel; Discord role/channel overwrites decide the effective permissions.
+
+Next ordered-roadmap step: Activity System capture-readiness feedback is now complete at the available REST-error level. Continue with the existing Lobby Night stage by making proposal collection and poll preparation easier to review, without creating a Discord scheduled event. Creator stream sources, full Dashboard analytics and expanded AI analysis remain later stages.
 
 0.3.8 — release validation hardening: review of the successful 0.3.7 workflow logs revealed 21 Qt-dependent tests skipped on the runner despite installing PySide6. All 54 tests had actually executed and passed locally. The workflow now installs Linux EGL/OpenGL runtime libraries, explicitly imports/initializes Qt and application modules, and refuses publication if any test is skipped. This changes only CI infrastructure, not Windows dependencies, starters, saved data or source updater. Cumulative package retains the 0.3.7 Activity freshness improvements and 0.3.6 reviewed deletion. Actual 0.3.8 publication outcome must be verified.
 
@@ -12,7 +18,7 @@ Publication recovery: 0.3.6 commit remains in main, but its release job was canc
 
 Confirmed publication on 2026-10-06 at 15:21 Europe/Berlin: workflow run 37470127466 completed successfully, but log review found 21 skipped Qt tests; local validation did execute all 54. Release v0.3.7 targets commit 00454f0c2dbad41c2d8bc4f75cdfd044544f7780 and both release.json and the 75,080-byte source ZIP are uploaded. Release: https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.3.7 . The prior 0.3.6 publication failure is resolved by this cumulative release. Activation remains the next start.bat launch; EXE updating remains unsupported.
 
-Next ordered-roadmap step: Activity System permission/setup feedback based on actual read failures; then build on the existing Lobby Night proposal/poll flow. Creator stream sources and Dashboard analytics remain pending.
+The permission/setup feedback named here was completed in 0.3.9.
 
 Community access hotfix from 0.2.5 retained: all tabs navigable offline with local server context; live actions require matching Discord connection. GitHub Actions installs the existing application requirements and runs offscreen UI regressions.
 

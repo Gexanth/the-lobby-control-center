@@ -36,6 +36,8 @@ class CommunityPage(QWidget):
         self.scan=QPushButton('Aktivität dieses Kanals erfassen');self.scan.clicked.connect(self.sample);a.addWidget(self.scan)
         self.auto_sample=QCheckBox('Diesen Kanal alle 15 Minuten erfassen, solange verbunden')
         a.addWidget(self.auto_sample)
+        self.activity_access=QLabel('Benötigt im gewählten Kanal: „Kanal ansehen“ und „Nachrichtenverlauf anzeigen“. Nachrichten senden ist nicht erforderlich.')
+        self.activity_access.setWordWrap(True);self.activity_access.setTextFormat(Qt.PlainText);a.addWidget(self.activity_access)
         self.activity_timer=QTimer(self);self.activity_timer.setInterval(15*60*1000);self.activity_timer.timeout.connect(lambda:self.sample() if self.auto_sample.isChecked() else None);self.activity_timer.start()
         self.activity_metrics=QLabel('Noch keine Daten für diesen Kanal.');self.activity_metrics.setWordWrap(True);a.addWidget(self.activity_metrics)
         self.activity_quality=QLabel();self.activity_quality.setWordWrap(True);self.activity_quality.setTextFormat(Qt.PlainText);a.addWidget(self.activity_quality)
@@ -284,8 +286,14 @@ class CommunityPage(QWidget):
         if self.host.discord_worker is not None:return
         self.status.setText('Aktivität wird gelesen …')
         def done(result):
-            if self.guard(lambda:self.store.record_activity(guild,result)):self.status.setText('Aktivitätsstichprobe und Verlauf gespeichert.')
-        self.host.run_discord_job(lambda:client.activity_window(channel),done,self.status.setText)
+            if self.guard(lambda:self.store.record_activity(guild,result)):
+                self.status.setText('Aktivitätsstichprobe und Verlauf gespeichert.')
+                self.activity_access.setText('Zugriff bei der letzten Erfassung bestätigt: Kanal ansehen und Nachrichtenverlauf anzeigen.')
+        def failed(error):
+            self.status.setText('Aktivität nicht erfasst. Hinweise im Activity System prüfen.')
+            self.activity_access.setText(str(error))
+            if str(error).startswith(('Aktivität blockiert:','Kanalzugriff blockiert:')):self.auto_sample.setChecked(False)
+        self.host.run_discord_job(lambda:client.activity_window(channel),done,failed)
     def add_night(self):self.guard(lambda:self.store.add_night(self.guild_id,self.night_title.text(),self.night_time.text(),self.options.toPlainText()))
     def chosen_night(self):
         item=self.nights.currentItem()

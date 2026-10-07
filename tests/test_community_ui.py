@@ -61,6 +61,41 @@ class CommunityAccessTests(unittest.TestCase):
         c.offline_server.setCurrentText(guild);c.open_offline()
         self.assertIn('Keine belastbaren',c.activity_metrics.text());self.assertIn('unbestätigte',c.activity_quality.text())
         self.assertNotIn('0 Nachrichten',c.activity_metrics.text())
+    def test_activity_permission_failure_is_actionable_and_stops_auto_retry(self):
+        from lobby import Lobby,DiscordError,discord_http_error_message
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678';calls=[]
+        def transport(method,path,payload,reason):
+            calls.append(path)
+            if '?' not in path:return {'id':channel,'guild_id':guild,'type':0}
+            raise DiscordError(discord_http_error_message(403,method,path))
+        self.w.discord_client=Lobby('test',guild,transport=transport)
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'chat','type':0}],'roles':[]})
+        c.auto_sample.setChecked(True)
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous):c.sample()
+        self.assertFalse(c.auto_sample.isChecked());self.assertIn('Kanal ansehen',c.activity_access.text())
+        self.assertIn('Nachrichtenverlauf anzeigen',c.activity_access.text());self.assertIn('nicht erforderlich',c.activity_access.text())
+        self.assertIn('nicht erfasst',c.status.text());self.assertNotIn(channel,c.store.guild(guild)['activity'])
+        self.assertEqual(len(calls),2)
+
+    def test_successful_activity_capture_confirms_access(self):
+        from lobby import Lobby
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        def transport(method,path,payload,reason):
+            if '?' not in path:return {'id':channel,'guild_id':guild,'type':0}
+            return []
+        self.w.discord_client=Lobby('test',guild,transport=transport)
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'chat','type':0}],'roles':[]})
+        def synchronous(action,success,failure):
+            try:result=action()
+            except Exception as exc:failure(str(exc));return
+            success(result)
+        with patch.object(self.w,'run_discord_job',side_effect=synchronous):c.sample()
+        self.assertIn('Zugriff bei der letzten Erfassung bestätigt',c.activity_access.text())
+        self.assertIn(channel,c.store.guild(guild)['activity'])
     def test_offline_planning_disconnect_and_wrong_server_block(self):
         from datetime import datetime,timedelta
         c=self.w.community;guild='930828728966217728'

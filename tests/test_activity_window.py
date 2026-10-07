@@ -1,7 +1,7 @@
 import tempfile,unittest
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
-from lobby import Lobby,DiscordError
+from lobby import Lobby,DiscordError,discord_http_error_message
 
 GUILD='930828728966217728';CHANNEL='123456789012345678'
 class WindowTests(unittest.TestCase):
@@ -39,3 +39,11 @@ class WindowTests(unittest.TestCase):
         now=datetime.now(timezone.utc);batch=self.batch(0,100,now)
         client,_=self.client([batch,batch])
         with self.assertRaises(DiscordError):client.activity_window(CHANNEL,now=now)
+    def test_http_permission_guidance_is_endpoint_specific_and_sanitized(self):
+        messages=discord_http_error_message(403,'GET',f'/channels/{CHANNEL}/messages?limit=100')
+        self.assertIn('Kanal ansehen',messages);self.assertIn('Nachrichtenverlauf anzeigen',messages)
+        self.assertIn('nicht erforderlich',messages);self.assertNotIn('token',messages.lower())
+        channel=discord_http_error_message(403,'GET',f'/channels/{CHANNEL}')
+        self.assertIn('Kanal ansehen',channel);self.assertNotIn('Nachrichtenverlauf anzeigen',channel)
+        self.assertIn('nicht sichtbar',discord_http_error_message(404,'GET',f'/channels/{CHANNEL}'))
+        self.assertEqual(discord_http_error_message(403,'POST','/guilds/x'),'Bot hat keinen Zugriff. Rechte der Bot-Rolle und Kanalüberschreibungen prüfen.')

@@ -27,6 +27,25 @@ class DiscordError(RuntimeError):
     pass
 
 
+def discord_http_error_message(code,method,path):
+    """Return sanitized, endpoint-specific help without response bodies or secrets."""
+    if code==401:return 'Bot-Token ungültig. Zugangsdaten prüfen.'
+    if code==403:
+        if method=='GET' and re.fullmatch(r'/channels/[0-9]{17,20}/messages(?:\?.*)?',path):
+            return ('Aktivität blockiert: Der Bot braucht im gewählten Kanal „Kanal ansehen“ und '
+                    '„Nachrichtenverlauf anzeigen“. Discord → Kanal bearbeiten → Berechtigungen → '
+                    'Bot-Rolle; beide Rechte erlauben. „Nachrichten senden“ ist für die Erfassung nicht erforderlich.')
+        if method=='GET' and re.fullmatch(r'/channels/[0-9]{17,20}',path):
+            return ('Kanalzugriff blockiert: Der Bot braucht im gewählten Kanal „Kanal ansehen“. '
+                    'Discord → Kanal bearbeiten → Berechtigungen → Bot-Rolle prüfen.')
+        return 'Bot hat keinen Zugriff. Rechte der Bot-Rolle und Kanalüberschreibungen prüfen.'
+    if code==404:
+        if method=='GET' and path.startswith('/channels/'):
+            return 'Kanal nicht gefunden oder für den Bot nicht sichtbar. Kanalwahl und „Kanal ansehen“ prüfen.'
+        return 'Kanal oder Server nicht gefunden beziehungsweise nicht zugänglich.'
+    return f'Discord HTTP {code}: Rechte, IDs und Bot-Verbindung prüfen.'
+
+
 class Lobby:
     def __init__(self, token, guild_id, writes=False, db="data/lobby.sqlite3", transport=None):
         if not token:
@@ -56,8 +75,7 @@ class Lobby:
             # Never expose response bodies, tokens, or request headers.
             if error.code == 429:
                 raise DiscordError("Discord-Anfragelimit erreicht. Später erneut versuchen; keine automatische Wiederholung.") from None
-            hints={401:'Bot-Token ungültig. Zugangsdaten prüfen.',403:'Bot hat keinen Zugriff. Kanal ansehen und Nachrichtenverlauf lesen prüfen.',404:'Kanal oder Server nicht gefunden beziehungsweise nicht zugänglich.'}
-            raise DiscordError(hints.get(error.code,f'Discord HTTP {error.code}: Rechte, IDs und Bot-Verbindung prüfen.')) from None
+            raise DiscordError(discord_http_error_message(error.code,method,path)) from None
         except (URLError, TimeoutError):
             raise DiscordError("Discord nicht erreichbar. Bei Schreibaktionen vor Wiederholung den Server prÃ¼fen.") from None
 
@@ -252,4 +270,3 @@ class Lobby:
             changes["member_delta_approximate"] = a - b if a is not None and b is not None else None
             report.update(previous_timestamp=previous[0], changes=changes)
         return report
-
