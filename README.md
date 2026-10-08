@@ -213,3 +213,7 @@ Community → Activity System shows the capture date and the 24h **before that c
 ## Activity permissions in 0.3.9
 
 The Activity page shows its read-only requirements directly. In the selected Discord channel, open **Edit Channel → Permissions → bot role** and allow **View Channel** and **Read Message History** (German client: **Kanal ansehen** and **Nachrichtenverlauf anzeigen**). **Send Messages is not required.** If Discord rejects the channel lookup or message-history request, the page shows which access to check. Permission failures stop optional 15-minute retries and keep earlier samples; reconnect or capture again after correcting permissions. The app does not make a separate permission-probe request.
+
+## Lobby Night drafts in 0.4.0
+
+Community → Lobby Night validates 2–10 unique game suggestions (maximum 55 characters each) while you type. Save a local plan, select it to review its numbered choices, and correct title, time or suggestions before publication. Editing retains the plan identity and does not create another entry. Canceled plans and polls already scheduled, sending, unclear or published are locked to protect the reviewed delivery record. Suggestions are entered manually; the app does not read proposal-channel messages. Saving/editing creates no Discord event or message. Publishing a native poll still requires the separate preview and confirmation; scheduled publication still requires the app running and connected.

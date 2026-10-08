@@ -7,7 +7,7 @@ from creator_roles import binding,save_binding,delivery,checked_plan,assign_chec
 from engagement import engagement_ideas,activity_quality
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
-from community import CommunityStore,CommunityError,activity_sample,parse_time
+from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields
 
 class CommunityPage(QWidget):
     def __init__(self,host):
@@ -52,8 +52,13 @@ class CommunityPage(QWidget):
         self.night_title=QLineEdit('Lobby Night');n.addWidget(self.night_title)
         self.night_time=QLineEdit((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.night_time.setPlaceholderText('Lokale PC-Zeit: JJJJ-MM-TT HH:MM');n.addWidget(self.night_time)
         self.options=QTextEdit();self.options.setPlaceholderText('Ein Spielvorschlag pro Zeile (2–10)');self.options.setMaximumHeight(100);n.addWidget(self.options)
-        b=QPushButton('Termin und Vorschläge speichern');b.clicked.connect(self.add_night);n.addWidget(b)
-        self.nights=QListWidget();self.nights.itemSelectionChanged.connect(self.show_poll_status);self.nights.setMaximumHeight(120);n.addWidget(self.nights)
+        self.night_readiness=QLabel();self.night_readiness.setWordWrap(True);self.night_readiness.setTextFormat(Qt.PlainText);n.addWidget(self.night_readiness)
+        row=QHBoxLayout();self.night_save=QPushButton('Termin und Vorschläge speichern');self.night_save.clicked.connect(self.save_night);row.addWidget(self.night_save)
+        self.night_new=QPushButton('Neuen Entwurf beginnen');self.night_new.clicked.connect(self.new_night);row.addWidget(self.night_new);n.addLayout(row)
+        self.night_edit_id=None;self.night_edit_guild=None
+        self.nights=QListWidget();self.nights.itemSelectionChanged.connect(self.select_night);self.nights.setMaximumHeight(120);n.addWidget(self.nights)
+        self.night_review=QLabel('Noch keinen gespeicherten Lobby-Night-Plan ausgewählt.');self.night_review.setWordWrap(True);self.night_review.setTextFormat(Qt.PlainText);n.addWidget(self.night_review)
+        self.night_title.textChanged.connect(self.refresh_night_readiness);self.night_time.textChanged.connect(self.refresh_night_readiness);self.options.textChanged.connect(self.refresh_night_readiness)
         n.addWidget(QLabel('Discord-Abstimmung: Zielkanal und Laufzeit'))
         poll_row=QHBoxLayout();self.poll_channel=QComboBox();poll_row.addWidget(self.poll_channel,2)
         self.poll_hours=QComboBox()
@@ -115,6 +120,7 @@ class CommunityPage(QWidget):
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
         self.tabs.setEnabled(True)
         self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.refresh_activity_feedback);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
+        self.refresh_night_readiness()
         self.bind(None)
     def bind(self,data):
         old_guild=self.guild_id;selected=self.channel.currentData();auto=self.auto_sample.isChecked()
@@ -294,7 +300,37 @@ class CommunityPage(QWidget):
             self.activity_access.setText(str(error))
             if str(error).startswith(('Aktivität blockiert:','Kanalzugriff blockiert:')):self.auto_sample.setChecked(False)
         self.host.run_discord_job(lambda:client.activity_window(channel),done,failed)
-    def add_night(self):self.guard(lambda:self.store.add_night(self.guild_id,self.night_title.text(),self.night_time.text(),self.options.toPlainText()))
+    def refresh_night_readiness(self,*_):
+        if not hasattr(self,'night_readiness'):return
+        try:
+            _,due,options=night_fields(self.night_title.text(),self.night_time.text(),self.options.toPlainText())
+            self.night_readiness.setText(f'Bereit zum lokalen Speichern · {len(options)} eindeutige Vorschläge · Termin {due.astimezone().strftime("%d.%m.%Y %H:%M")}. Vor Discord-Veröffentlichung folgt eine weitere Vorschau.')
+        except (CommunityError,ValueError) as exc:self.night_readiness.setText('Entwurf noch nicht bereit: '+str(exc))
+    def new_night(self):
+        self.night_edit_id=None;self.night_edit_guild=None;self.nights.setCurrentRow(-1)
+        self.night_title.setText('Lobby Night');self.night_time.setText((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.options.clear()
+        for widget in (self.night_title,self.night_time,self.options):widget.setEnabled(True)
+        self.night_save.setEnabled(bool(self.guild_id));self.night_save.setText('Termin und Vorschläge speichern');self.night_review.setText('Neuer lokaler Entwurf · noch nicht gespeichert oder veröffentlicht.')
+    def save_night(self):
+        if self.night_edit_id:
+            if self.night_edit_guild!=self.guild_id:self.status.setText('Server gewechselt. Lobby Night erneut auswählen.');return
+            if self.guard(lambda:self.store.update_night(self.guild_id,self.night_edit_id,self.night_title.text(),self.night_time.text(),self.options.toPlainText())):self.status.setText('Lobby-Night-Entwurf aktualisiert. Noch nicht veröffentlicht.');self.show_poll_status()
+            return
+        created=[]
+        if self.guard(lambda:created.append(self.store.add_night(self.guild_id,self.night_title.text(),self.night_time.text(),self.options.toPlainText()))):
+            for i in range(self.nights.count()):
+                if self.nights.item(i).data(Qt.UserRole)==created[0]['id']:self.nights.setCurrentRow(i);break
+            self.status.setText('Lobby-Night-Entwurf gespeichert. Noch nicht veröffentlicht.')
+    def add_night(self):self.save_night() # compatibility for existing callers
+    def select_night(self):
+        n=self.chosen_night()
+        if not n:self.show_poll_status();return
+        self.night_edit_id=n['id'];self.night_edit_guild=self.guild_id
+        self.night_title.setText(n['title']);self.night_time.setText(parse_time(n['when']).astimezone().strftime('%Y-%m-%d %H:%M'));self.options.setPlainText('\n'.join(n['options']))
+        locked=n.get('status')!='geplant' or n.get('poll_delivery',{}).get('state') not in (None,'ready')
+        for widget in (self.night_title,self.night_time,self.options):widget.setEnabled(not locked)
+        self.night_save.setEnabled(not locked);self.night_save.setText('Änderungen am Entwurf speichern')
+        self.show_poll_status()
     def chosen_night(self):
         item=self.nights.currentItem()
         return next((n for n in self.store.guild(self.guild_id)['nights'] if item and n['id']==item.data(Qt.UserRole)),None) if self.guild_id else None
@@ -308,6 +344,8 @@ class CommunityPage(QWidget):
         if not hasattr(self,'poll_status'):return
         n=self.chosen_night()
         d=n.get('poll_delivery',{}) if n else {}
+        if hasattr(self,'night_review'):
+            self.night_review.setText(('Ausgewählter Plan · '+n['title']+' · '+parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M')+'\nVorschläge: '+' · '.join(f'{i+1}. {v}' for i,v in enumerate(n['options']))+'\nDies ist kein Discord-Event.') if n else 'Noch keinen gespeicherten Lobby-Night-Plan ausgewählt.')
         if d.get('state')=='sent':
             self.poll_status.setText('Veröffentlicht: https://discord.com/channels/'+self.guild_id+'/'+d['channel']+'/'+d['message_id'])
         elif d.get('state')=='scheduled':

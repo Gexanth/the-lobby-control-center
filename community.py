@@ -12,6 +12,18 @@ def parse_time(value):
     except (ValueError,TypeError,AttributeError):raise CommunityError('Datum als JJJJ-MM-TT HH:MM eingeben.') from None
     return d.astimezone(timezone.utc)
 
+def night_fields(title,when,suggestions,now=None):
+    """Validate a local Lobby Night draft against the later Discord poll limits."""
+    title=title.strip() if isinstance(title,str) else ''
+    if not 1<=len(title)<=120:raise CommunityError('Titel mit 1–120 Zeichen eingeben.')
+    due=parse_time(when);now=now or utcnow()
+    if due<=now:raise CommunityError('Der Termin muss in der Zukunft liegen.')
+    options=[x.strip() for x in suggestions.split('\n') if x.strip()] if isinstance(suggestions,str) else []
+    if not 2<=len(options)<=10:raise CommunityError('2–10 Spielvorschläge eingeben, einen pro Zeile.')
+    if any(len(x)>55 for x in options):raise CommunityError('Jeder Spielvorschlag darf höchstens 55 Zeichen enthalten.')
+    if len({x.casefold() for x in options})!=len(options):raise CommunityError('Doppelte Spielvorschläge entfernen.')
+    return title,due,options
+
 def activity_sample(messages,channel_id,now=None):
     now=now or utcnow();people=set();recent_people=set();times=[];count=0;recent=0
     for m in messages:
@@ -49,13 +61,20 @@ class CommunityStore:
         g=self.guild(guild)
         return g.get('activity_history',{}).get(channel,[])
     def add_night(self,guild,title,when,suggestions):
-        if not 1<=len(title.strip())<=120:raise CommunityError('Titel mit 1–120 Zeichen eingeben.')
-        due=parse_time(when)
-        if due<=utcnow():raise CommunityError('Der Termin muss in der Zukunft liegen.')
-        options=[x.strip() for x in suggestions.split('\n') if x.strip()]
-        if not 2<=len(options)<=10:raise CommunityError('2–10 Spielvorschläge eingeben, einen pro Zeile.')
-        night={'id':uuid.uuid4().hex,'title':title.strip(),'when':due.isoformat(),'options':options,'reminded':False,'status':'geplant'}
+        title,due,options=night_fields(title,when,suggestions)
+        night={'id':uuid.uuid4().hex,'title':title,'when':due.isoformat(),'options':options,'reminded':False,'status':'geplant'}
         self.guild(guild)['nights'].append(night);self.save();return night
+    def update_night(self,guild,item,title,when,suggestions):
+        row=next((n for n in self.guild(guild)['nights'] if n['id']==item),None)
+        if not row:raise CommunityError('Lobby-Night-Entwurf nicht mehr vorhanden.')
+        if row.get('status')!='geplant':raise CommunityError('Abgesagte Lobby Nights können nicht bearbeitet werden.')
+        state=row.get('poll_delivery',{}).get('state')
+        if state not in (None,'ready'):raise CommunityError('Geplante, laufende, unklare oder veröffentlichte Abstimmungen sind gesperrt.')
+        title,due,options=night_fields(title,when,suggestions);before=copy.deepcopy(row)
+        row.update(title=title,when=due.isoformat(),options=options,reminded=False)
+        try:self.save()
+        except OSError:row.clear();row.update(before);raise
+        return row
     def due_nights(self,guild,now=None):
         now=now or utcnow()
         return [n for n in self.guild(guild)['nights'] if n['status']=='geplant' and not n['reminded'] and parse_time(n['when'])<=now]

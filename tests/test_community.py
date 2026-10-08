@@ -1,7 +1,7 @@
 import json,tempfile,unittest
 from pathlib import Path
 from datetime import datetime,timezone,timedelta
-from community import CommunityStore,CommunityError,activity_sample
+from community import CommunityStore,CommunityError,activity_sample,night_fields
 from ai_assistant import request_plan
 class CommunityTests(unittest.TestCase):
     def test_activity_aggregation_excludes_bots_and_content(self):
@@ -57,6 +57,26 @@ class HistoryTests(unittest.TestCase):
             before=json.dumps(store.data,sort_keys=True)
             with patch.object(store,'save',side_effect=OSError('disk full')):
                 with self.assertRaises(OSError):store.record_activity('one',activity_sample([],'42'))
+            self.assertEqual(json.dumps(store.data,sort_keys=True),before)
+
+class LobbyNightDraftTests(unittest.TestCase):
+    def test_early_poll_limits_and_duplicate_validation(self):
+        future=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
+        self.assertEqual(night_fields(' Night ',future,' Game A \nGame B')[2],['Game A','Game B'])
+        for suggestions in ('Game A\ngame a','A\n'+('B'*56)):
+            with self.assertRaises(CommunityError):night_fields('Night',future,suggestions)
+    def test_safe_edit_preserves_identity_and_blocks_delivery_states(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));future=datetime.now(timezone.utc)+timedelta(days=1)
+            row=store.add_night('one','Night',future.isoformat(),'A\nB');row['reminded']=True
+            edited=store.update_night('one',row['id'],'Updated',(future+timedelta(hours=1)).isoformat(),'C\nD\nE')
+            self.assertEqual(edited['id'],row['id']);self.assertFalse(edited['reminded']);self.assertEqual(edited['options'],['C','D','E'])
+            edited['poll_delivery']={'state':'scheduled'}
+            with self.assertRaises(CommunityError):store.update_night('one',row['id'],'Blocked',(future+timedelta(hours=2)).isoformat(),'F\nG')
+            edited['poll_delivery']={'state':'ready'};before=json.dumps(store.data,sort_keys=True)
+            with patch.object(store,'save',side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):store.update_night('one',row['id'],'Rollback',(future+timedelta(hours=2)).isoformat(),'F\nG')
             self.assertEqual(json.dumps(store.data,sort_keys=True),before)
 
 

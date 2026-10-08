@@ -36,6 +36,12 @@ The page now names the exact read-only channel prerequisites and turns actual 40
 
 Next ordered step: improve Lobby Night suggestion collection and reviewed poll preparation. Continue to avoid Discord scheduled-event creation. Then Creator Hub → Dashboard → AI analysis.
 
+## 0.4.0 — Lobby Night draft review
+
+Local, manually entered game suggestions now receive live readiness feedback using Discord poll limits before saving. Saved drafts can be selected, reviewed and edited without changing their identity or creating duplicate plans. Canceled nights and scheduled/in-flight/unclear/published poll deliveries are locked. This deliberately does not ingest proposal-channel messages, create Discord scheduled events or publish a draft automatically. Existing reviewed native-poll preview, durable delivery journal and connected-desktop scheduling remain in place.
+
+Next: improve Lobby Night publication/readiness summary and local reminder controls. Then resume Creator Hub work, followed by Dashboard and AI analysis.
+
 ## 0.2.2 progress
 
 Selected-channel history, last-24h counts within the sample, explicit sample-cap warning, bounded storage and improved save-error handling implemented. These are overlapping sample snapshots, not a complete measurement of server activity. Full historical collection and Discord voting remain pending.

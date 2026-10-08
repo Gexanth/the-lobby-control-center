@@ -150,6 +150,21 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertFalse(c.poll_publish.isEnabled());self.assertTrue(c.poll_unschedule.isEnabled())
         c.stop_scheduled_poll();self.assertEqual(c.chosen_night()['poll_delivery']['state'],'ready')
 
+    def test_lobby_night_readiness_edit_and_locked_delivery(self):
+        from datetime import datetime,timedelta
+        c=self.w.community;guild='930828728966217728'
+        c.offline_server.setCurrentText(guild);c.open_offline()
+        c.night_title.setText('Community Night');c.night_time.setText((datetime.now()+timedelta(days=2)).strftime('%Y-%m-%d 20:00'));c.options.setPlainText('Minecraft\nminecraft')
+        self.assertIn('Doppelte',c.night_readiness.text())
+        c.options.setPlainText('Minecraft\nParty Animals\nValorant');self.assertIn('3 eindeutige Vorschläge',c.night_readiness.text())
+        c.save_night();self.assertEqual(c.nights.count(),1);saved=c.chosen_night();saved_id=saved['id']
+        self.assertIn('Dies ist kein Discord-Event',c.night_review.text());self.assertEqual(c.night_save.text(),'Änderungen am Entwurf speichern')
+        c.options.setPlainText('Minecraft\nParty Animals');c.save_night()
+        self.assertEqual(len(c.store.guild(guild)['nights']),1);self.assertEqual(c.chosen_night()['id'],saved_id);self.assertEqual(c.chosen_night()['options'],['Minecraft','Party Animals'])
+        c.chosen_night()['poll_delivery']={'state':'sent','channel':'123456789012345678','message_id':'123456789012345679'}
+        c.select_night();self.assertFalse(c.night_save.isEnabled());self.assertFalse(c.options.isEnabled())
+        c.new_night();self.assertTrue(c.options.isEnabled());self.assertEqual(c.options.toPlainText(),'');self.assertIn('Neuer lokaler Entwurf',c.night_review.text())
+
     def test_due_dispatch_waits_for_connection_and_sends_once(self):
         from datetime import datetime,timezone,timedelta
         from lobby import Lobby
