@@ -56,7 +56,7 @@ with up to 100 latest messages; requires View Channel and Read Message History.
 Optional 15-minute sampling runs only while the app is connected. Lobby Night
 provides local planning, copyable voting text and local reminders. Creator Hub
 provides local application management. Dashboard shows stored community counts.
-Server analysis uses your configured OpenAI API key on explicit request.
+Server analysis uses your configured Claude / Anthropic or OpenAI API key on explicit request.
 See ROADMAP.md for remaining Discord integrations and data limitations.
 
 ## Interface improvements (0.2.1)
@@ -217,3 +217,27 @@ The Activity page shows its read-only requirements directly. In the selected Dis
 ## Lobby Night drafts in 0.4.0
 
 Community → Lobby Night validates 2–10 unique game suggestions (maximum 55 characters each) while you type. Save a local plan, select it to review its numbered choices, and correct title, time or suggestions before publication. Editing retains the plan identity and does not create another entry. Canceled plans and polls already scheduled, sending, unclear or published are locked to protect the reviewed delivery record. Suggestions are entered manually; the app does not read proposal-channel messages. Saving/editing creates no Discord event or message. Publishing a native poll still requires the separate preview and confirmation; scheduled publication still requires the app running and connected.
+
+
+## Claude im Assistenten (0.4.1)
+
+Unter Einstellungen ist Claude / Anthropic vorausgewählt. Trage deinen
+Anthropic-API-Schlüssel ein und passe bei Bedarf die Modell-ID an deinen Zugang
+an (Standard: `claude-sonnet-5-5`). Danach unter Assistent einen Auftrag senden.
+Ein Claude-Chat-Abonnement beinhaltet keinen API-Zugang; API-Nutzung wird separat
+berechnet. Schlüssel und Anbieterwahl gelten nur für die App-Sitzung. Optional
+werden `ANTHROPIC_API_KEY` und `OPENAI_API_KEY` aus der Umgebung gelesen.
+
+OpenAI bleibt auswählbar. Schlüssel und Modell werden pro Anbieter getrennt im
+Arbeitsspeicher gehalten. Anbieterwechsel leert Gespräch und ausstehende Pläne.
+An den gewählten Anbieter gehen der Auftrag, der kurze Gesprächsverlauf,
+Kanalnamen/-IDs sowie vorhandene zusammengefasste Community-Daten; kein Bot-Token
+und keine einzelnen Discord-Nachrichten. Aktuelle Grenze: eine Kanalaktion pro
+Auftrag; Rollen, Nachrichten und Abstimmungen sind noch nicht als KI-Aktionen
+angebunden. Antworten bereiten nur Pläne vor. Die vorhandene Vorschau und die
+zusätzliche ID-Bestätigung bei Löschaktionen bleiben erforderlich.
+
+Implementiert über Anthropic Messages API mit erzwungenem `lobby_plan`-Tool und
+anschließender lokaler Schema-/Kanalprüfung. Keine automatische Wiederholung und
+kein automatischer Wechsel zu einem anderen Anbieter bei Fehlern.
+Referenz: https://platform.claude.com/docs/en/api/messages/create

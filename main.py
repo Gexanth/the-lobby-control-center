@@ -56,7 +56,9 @@ class MainWindow(QMainWindow):
         self.server_context=None
         self.ai_history=[]
         self.pending_ai=None
-        self.openai_api_key=""
+        self.ai_keys={"openai":os.getenv("OPENAI_API_KEY",""),"anthropic":os.getenv("ANTHROPIC_API_KEY","")}
+        self.ai_models={"openai":"gpt-4.1-mini","anthropic":"claude-sonnet-5-5"}
+        self.active_ai_provider="anthropic"
         self.setWindowTitle('The Lobby Control Center — '+VERSION)
         self.resize(1180,760)
         root=QWidget(); self.setCentralWidget(root)
@@ -149,12 +151,13 @@ class MainWindow(QMainWindow):
         if self.discord_worker is not None:return
         prompt=self.ai_input.text().strip()
         if not prompt:return
-        key=self.api_key_input.text().strip() or self.openai_api_key
+        provider=self.active_ai_provider
+        key=self.api_key_input.text().strip() or self.ai_keys[provider]
         if not key:
-            self.ai_status.setText('Bitte zuerst unter Einstellungen den OpenAI-API-Schlüssel eingeben.');return
+            self.ai_status.setText('Bitte zuerst unter Einstellungen den API-Schlüssel des gewählten Anbieters eingeben.');return
         if self.discord_client and key==self.discord_client.token:
-            self.ai_status.setText('Das ist dein Discord-Token. Bitte stattdessen den OpenAI-API-Schlüssel eingeben.');return
-        self.openai_api_key=key;self.api_key_input.clear()
+            self.ai_status.setText('Das ist dein Discord-Token. Bitte stattdessen den API-Schlüssel des gewählten Anbieters eingeben.');return
+        self.ai_keys[provider]=key;self.api_key_input.clear()
         model=self.ai_model.text().strip()
         context=json.loads(json.dumps(self.server_context)) if self.server_context else None
         if context and hasattr(self,'community'):
@@ -171,7 +174,7 @@ class MainWindow(QMainWindow):
             self.ai_status.setText('Kanalaktion vorbereitet. Noch nicht ausgeführt.' if result['spec'] else 'Antwort erhalten. Keine Kanalaktion vorbereitet.')
         def failed(message):
             self.chat.insertPlainText('System: '+message+'\n\n');self.ai_status.setText('KI-Anfrage fehlgeschlagen. Keine Discord-Aktion ausgeführt.')
-        self.run_discord_job(lambda:request_plan(key,model,prompt,context,history),answered,failed)
+        self.run_discord_job(lambda:request_plan(key,model,prompt,context,history,provider=provider),answered,failed)
 
     def apply_ai_plan(self):
         if self.discord_worker is not None or not self.pending_ai:return
@@ -232,7 +235,7 @@ class MainWindow(QMainWindow):
             if busy:self.community.scan.setEnabled(False);self.community.poll_publish.setEnabled(False);self.community.poll_results.setEnabled(False);self.community.poll_schedule.setEnabled(False);self.community.poll_unschedule.setEnabled(False);self.community.creator_role_apply.setEnabled(False);self.community.creator_link_save.setEnabled(False)
             if busy:
                 for widget in (self.community.creator_save,self.community.creator_remove,self.community.creators,self.community.creator_new,self.community.creator_search,self.community.creator_filter,self.community.creator_member_id,self.community.creator_role_id):widget.setEnabled(False)
-        for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.forget_key_button):
+        for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.ai_provider,self.forget_key_button):
             widget.setEnabled(not busy)
         if hasattr(self,'updates'):
             self.updates.setEnabled(not busy)
@@ -410,13 +413,17 @@ class MainWindow(QMainWindow):
 
     def settings(self):
         p=Page('Einstellungen','KI-Verbindung für deinen lokalen Assistenten.')
-        p.layout.addWidget(QLabel('OpenAI-API-Schlüssel (nur für die aktuelle Sitzung)'))
-        link=QLabel('<a href="https://platform.openai.com/api-keys">API-Schlüssel bei OpenAI erstellen</a>');link.setOpenExternalLinks(True);p.layout.addWidget(link)
-        self.api_key_input=QLineEdit(os.getenv('OPENAI_API_KEY',''));self.api_key_input.setEchoMode(QLineEdit.Password);self.api_key_input.setPlaceholderText('API-Schlüssel hier eingeben');p.layout.addWidget(self.api_key_input)
-        p.layout.addWidget(QLabel('Modell (mit Responses API und strukturierten Ausgaben)'))
-        self.ai_model=QLineEdit('gpt-4.1-mini');p.layout.addWidget(self.ai_model)
-        self.forget_key_button=QPushButton('API-Schlüssel aus der Sitzung entfernen');self.forget_key_button.clicked.connect(self.forget_ai_key);p.layout.addWidget(self.forget_key_button)
-        p.layout.addWidget(self.card('API-Nutzung','Die API kann separat berechnete Kosten verursachen. Beim Senden werden dein Auftrag, die letzten Gesprächsbeiträge und Kanalnamen sowie IDs an OpenAI übermittelt. Discord-Token, Mitglieder und Nachrichten werden nicht übertragen.'))
+        p.layout.addWidget(QLabel('KI-Anbieter'))
+        self.ai_provider=QComboBox();self.ai_provider.addItem('Claude / Anthropic','anthropic');self.ai_provider.addItem('OpenAI','openai');p.layout.addWidget(self.ai_provider)
+        self.ai_key_label=QLabel();p.layout.addWidget(self.ai_key_label)
+        self.ai_key_link=QLabel();self.ai_key_link.setOpenExternalLinks(True);p.layout.addWidget(self.ai_key_link)
+        self.api_key_input=QLineEdit(os.getenv('ANTHROPIC_API_KEY',''));self.api_key_input.setEchoMode(QLineEdit.Password);self.api_key_input.setPlaceholderText('API-Schlüssel hier eingeben');p.layout.addWidget(self.api_key_input)
+        p.layout.addWidget(QLabel('Modell-ID (bei Bedarf an deinen API-Zugang anpassen)'))
+        self.ai_model=QLineEdit(self.ai_models['anthropic']);p.layout.addWidget(self.ai_model)
+        self.forget_key_button=QPushButton('API-Schlüssel dieses Anbieters aus der Sitzung entfernen');self.forget_key_button.clicked.connect(self.forget_ai_key);p.layout.addWidget(self.forget_key_button)
+        p.layout.addWidget(self.card('API-Nutzung','Die API wird separat berechnet; ein Chat-Abonnement ersetzt keinen API-Zugang. Beim Senden gehen Auftrag, Gesprächsverlauf, Kanalnamen und IDs sowie zusammengefasste Community-Daten an den gewählten Anbieter. Discord-Token und einzelne Discord-Nachrichten werden nicht übertragen.'))
+        self.refresh_ai_provider_labels()
+        self.ai_provider.currentIndexChanged.connect(self.change_ai_provider)
         p.layout.addWidget(self.card('Gespräch & Aufgaben','Das KI-Gespräch bleibt in dieser App-Sitzung. Nur ausdrücklich gespeicherte Aufgaben liegen dauerhaft in deiner Aufgabendatei.'))
         p.layout.addWidget(self.card('Aufgabendatei',str(TASK_FILE)));p.layout.addStretch();return p
 
@@ -429,7 +436,27 @@ class MainWindow(QMainWindow):
         return self.updates
 
     def forget_ai_key(self):
-        self.openai_api_key='';self.api_key_input.clear()
+        self.ai_keys[self.active_ai_provider]='';self.api_key_input.clear()
+        self.ai_status.setText('API-Schlüssel dieses Anbieters aus der Sitzung entfernt.')
+
+    def refresh_ai_provider_labels(self):
+        claude=self.active_ai_provider=='anthropic'
+        name='Claude / Anthropic' if claude else 'OpenAI'
+        url='https://platform.claude.com/settings/keys' if claude else 'https://platform.openai.com/api-keys'
+        self.ai_key_label.setText(name+'-API-Schlüssel (nur für die aktuelle Sitzung)')
+        self.ai_key_link.setText(f'<a href="{url}">API-Schlüssel bei {name} erstellen</a>')
+        self.ai_send.setText('An Claude senden' if claude else 'An OpenAI senden')
+
+    def change_ai_provider(self):
+        old=self.active_ai_provider
+        self.ai_keys[old]=self.api_key_input.text().strip() or self.ai_keys[old]
+        self.ai_models[old]=self.ai_model.text().strip()
+        self.active_ai_provider=self.ai_provider.currentData()
+        self.api_key_input.clear()
+        self.ai_model.setText(self.ai_models[self.active_ai_provider])
+        self.clear_ai_chat()
+        self.refresh_ai_provider_labels()
+        self.ai_status.setText('Anbieter gewechselt. Neues Gespräch; vorhandene Pläne wurden verworfen.')
 
     def save_task(self,text):
         return self.mutate(lambda:self.store.add(text))

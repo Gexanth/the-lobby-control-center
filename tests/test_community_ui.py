@@ -25,6 +25,32 @@ class CommunityAccessTests(unittest.TestCase):
     def tearDown(self):
         self.w.close();self.app.processEvents()
         self.read_patch.stop();self.login_patch.stop();self.store_patch.stop();self.task_patch.stop();self.tmp.cleanup()
+    def test_ai_provider_switch_isolates_keys_history_and_pending_plan(self):
+        w=self.w
+        self.assertEqual(w.active_ai_provider,'anthropic')
+        w.api_key_input.setText('claude-test-key');w.ai_model.setText('claude-custom')
+        w.ai_history=[{'role':'user','content':'private conversation'}];w.pending_ai={'spec':{}}
+        w.ai_provider.setCurrentIndex(1)
+        self.assertEqual(w.ai_keys['anthropic'],'claude-test-key')
+        self.assertEqual(w.api_key_input.text(),'')
+        self.assertEqual(w.ai_history,[]);self.assertIsNone(w.pending_ai)
+        self.assertFalse(w.ai_apply.isEnabled())
+        w.api_key_input.setText('openai-test-key');w.ai_provider.setCurrentIndex(0)
+        self.assertEqual(w.ai_keys['openai'],'openai-test-key')
+        self.assertEqual(w.ai_model.text(),'claude-custom')
+        w.forget_ai_key()
+        self.assertEqual(w.ai_keys['anthropic'],'')
+        self.assertEqual(w.ai_keys['openai'],'openai-test-key')
+
+    def test_ai_dispatch_uses_selected_provider(self):
+        w=self.w;w.api_key_input.setText('claude-test-key');w.ai_input.setText('Hallo')
+        with patch('main.request_plan',return_value={'message':'Hallo','spec':None,'guild':None}) as request:
+            with patch.object(w,'run_discord_job',side_effect=lambda work,done,failed:done(work())):
+                w.ask_ai()
+        self.assertEqual(request.call_args.kwargs['provider'],'anthropic')
+        self.assertEqual(w.api_key_input.text(),'')
+        self.assertEqual(w.ai_keys['anthropic'],'claude-test-key')
+
     def test_all_tabs_available_offline_and_connection_shortcut(self):
         c=self.w.community
         self.assertTrue(c.tabs.isEnabled());self.assertFalse(c.scan.isEnabled())

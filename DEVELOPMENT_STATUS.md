@@ -1,3 +1,17 @@
+## 0.4.1 — Claude provider integration
+
+User-requested integration alongside the roadmap: Claude / Anthropic is the
+initial provider in Settings; OpenAI remains supported. Provider-specific session
+keys/models, provider-switch history/plan reset, German errors, and forced
+single-plan Anthropic tool output reuse the existing validated preview flow.
+No Discord writes or paid API requests were made during development. Keys are
+never written to project files. Real API/account/model availability remains to be
+verified with the user's own key. No added runtime dependency or updater change.
+
+Validation: 68 tests passed locally, zero skipped, including provider payload,
+authentication headers, context whitelist, truncated/ambiguous/invalid responses,
+OpenAI compatibility, and UI provider/key/history isolation and dispatch.
+
 # Development status — 0.4.0
 
 0.4.0 — Lobby Night proposal review and safe draft editing. The local planner validates the same option limits needed by Discord before saving: 2–10 non-empty, case-insensitively unique suggestions, each at most 55 characters. Live readiness feedback shows option count and local event time. Selecting a saved plan loads its title/time/options back into the form, shows a numbered review summary, and allows ID-preserving edits without creating duplicates. Editing resets the local reminder for the changed future time. Canceled nights and poll deliveries in scheduled/sending/uncertain/sent states are locked; the existing explicit Discord publication preview remains mandatory. Storage failure restores the prior draft. Existing records/data format remain compatible.

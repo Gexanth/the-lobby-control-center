@@ -1,4 +1,4 @@
-"""Bounded, structured planning via the OpenAI Responses API. No Discord credentials sent."""
+"""Bounded, structured planning via OpenAI Responses or Anthropic Messages. No Discord credentials sent."""
 import json
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError,URLError
@@ -69,8 +69,10 @@ def validate_plan(value,context,prompt):
             'kind':value['kind'] or 'text','parent':parent,'reason':('KI-Auftrag: '+prompt)[:200]}
 
 
-def request_plan(api_key, model, prompt, context, history, transport=None):
-    if not api_key:raise AIError('Bitte in den Einstellungen einen OpenAI-API-Schlüssel eingeben.')
+def request_plan(api_key, model, prompt, context, history, transport=None, provider="openai"):
+    if provider not in ("openai", "anthropic"):raise AIError("Unbekannter KI-Anbieter.")
+    provider_name="Claude / Anthropic" if provider=="anthropic" else "OpenAI"
+    if not api_key:raise AIError(f'Bitte in den Einstellungen einen {provider_name}-API-Schlüssel eingeben.')
     if not model or len(model)>100:raise AIError('Bitte ein gültiges Modell in den Einstellungen wählen.')
     if not 1<=len(prompt.strip())<=4000:raise AIError('Bitte einen Auftrag mit maximal 4000 Zeichen eingeben.')
     # Only whitelisted server fields; no roles, messages, tokens or local task files.
@@ -90,18 +92,36 @@ def request_plan(api_key, model, prompt, context, history, transport=None):
     messages.append({'role':'user','content':prompt})
     payload={'model':model,'instructions':INSTRUCTIONS,'input':messages,'store':False,'max_output_tokens':1800,
              'text':{'format':{'type':'json_schema','name':'lobby_plan','strict':True,'schema':SCHEMA}}}
+    if provider=='anthropic':
+        payload={'model':model,'system':INSTRUCTIONS,'messages':messages,'max_tokens':1800,
+                 'tools':[{'name':'lobby_plan','description':'Eine validierte Antwort oder Kanalaktion vorbereiten; nicht ausführen.','input_schema':SCHEMA}],
+                 'tool_choice':{'type':'tool','name':'lobby_plan','disable_parallel_tool_use':True}}
     if transport:
         response=transport(payload)
     else:
-        req=Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),method='POST',
-                    headers={'Authorization':'Bearer '+api_key,'Content-Type':'application/json'})
+        url='https://api.anthropic.com/v1/messages' if provider=='anthropic' else 'https://api.openai.com/v1/responses'
+        headers={'Content-Type':'application/json'}
+        if provider=='anthropic':headers.update({'x-api-key':api_key,'anthropic-version':'2023-06-01'})
+        else:headers['Authorization']='Bearer '+api_key
+        req=Request(url,data=json.dumps(payload).encode(),method='POST',headers=headers)
         try:
             with urlopen(req,timeout=45) as r:response=json.loads(r.read())
         except HTTPError as exc:
             messages={401:'API-Schlüssel ungültig oder nicht berechtigt.',403:'API-Zugriff verweigert.',429:'API-Limit oder Guthaben prüfen. Es erfolgt keine automatische Wiederholung.',400:'Modell oder Anfrage wird nicht unterstützt. Modell in den Einstellungen prüfen.',404:'Modell nicht verfügbar. Modell in den Einstellungen prüfen.'}
-            raise AIError(messages.get(exc.code,f'OpenAI HTTP {exc.code}: Anfrage fehlgeschlagen.')) from None
-        except (URLError,TimeoutError):raise AIError('OpenAI ist nicht erreichbar. Bitte später erneut versuchen.') from None
+            raise AIError(messages.get(exc.code,f'{provider_name} HTTP {exc.code}: Anfrage fehlgeschlagen.')) from None
+        except (URLError,TimeoutError):raise AIError(f'{provider_name} ist nicht erreichbar. Bitte später erneut versuchen.') from None
         except (ValueError,OSError):raise AIError('Die API-Antwort konnte nicht gelesen werden.') from None
+    if not isinstance(response,dict):raise AIError('Ungültige API-Antwort. Keine Aktion vorbereitet.')
+    if provider=='anthropic':
+        content=response.get('content')
+        if response.get('stop_reason')!='tool_use' or not isinstance(content,list):
+            raise AIError('Claude hat keinen vollständigen Plan geliefert. Keine Aktion vorbereitet.')
+        calls=[x for x in content if isinstance(x,dict) and x.get('type')=='tool_use']
+        if len(calls)!=1 or calls[0].get('name')!='lobby_plan':
+            raise AIError('Claude hat keinen eindeutigen Plan geliefert. Keine Aktion vorbereitet.')
+        value=calls[0].get('input')
+        spec=validate_plan(value,clean,prompt)
+        return {'message':value['message'],'spec':spec,'guild':clean['id'] if clean else None}
     if response.get('status')!='completed':raise AIError('Die KI-Antwort wurde nicht vollständig erstellt. Keine Aktion vorbereitet.')
     parts=[]
     for item in response.get('output',[]):
