@@ -6,6 +6,13 @@ Nothing is marked saved after failure; cancel remains possible. This preserves
 the draft during this dialog session, not across app termination. Regression
 verifies same dialog, edited content retained and no task created on failure.
 
+Publication verified 2026-10-09: v0.4.8 was first published via successful run
+37968682972. Cumulative v0.4.9 then passed all 100 tests with Qt locally and in
+CI, zero skips, run 37968892509. Release targets
+11970efcf3cd6caa7654de9bc82e5d1471983fc9; release.json (285 bytes) and ZIP
+(110965 bytes) are uploaded. No real Discord mutation or paid API test.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.9
+
 ## 0.4.8 — Empfehlungen als überprüfbare Aufgaben
 
 Roadmap stage: AI assistant / server analysis follow-through. Explicitly selected
