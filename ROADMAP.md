@@ -12,6 +12,9 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.11 — AI analysis usability: actions above the bounded, scrollable evidence
+preview so the shared Community tab height does not hide the start controls.
+
 0.4.10 — AI server analysis: local evidence preview, stable per-measurement source
 IDs, data-quality guidance and sanitized latest samples even without history.
 Prompt requests source references; correctness is not yet mechanically checked.

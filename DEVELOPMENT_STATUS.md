@@ -1,3 +1,11 @@
+## 0.4.11 — Analyseaktionen direkt erreichbar
+
+Visual verification found that the shared Community tab height can push controls
+below the viewport. Move analysis refresh/start actions above the evidence and
+bound its height to 420 pixels; long evidence remains internally scrollable.
+The current analysis actions are now reachable without scrolling at 1280x900.
+This is an AI server analysis usability follow-up to 0.4.10.
+
 ## 0.4.10 — Datengrundlage vor der KI-Analyse
 
 Roadmap stage: AI server analysis, built on Activity System snapshots. The

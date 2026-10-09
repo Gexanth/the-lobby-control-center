@@ -39,6 +39,18 @@ class CommunityAccessTests(unittest.TestCase):
         c.offline_server.setCurrentText('930828728966217729');c.open_offline()
         self.assertNotIn('example-channel',c.analysis_preview.toPlainText())
         self.assertIn('Keine Aktivitätsmessungen',c.analysis_preview.toPlainText())
+    def test_analysis_actions_visible_above_preview(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtWidgets import QPushButton
+        c=self.w.community;c.tabs.setCurrentIndex(3);self.w.stack.setCurrentIndex(7)
+        self.w.resize(1280,900);self.app.processEvents()
+        buttons=c.tabs.widget(3).findChildren(QPushButton)
+        self.assertEqual(len(buttons),2)
+        for button in buttons:
+            self.assertLess(button.mapTo(self.w,QPoint(0,button.height())).y(),self.w.height()-30)
+            self.assertLess(button.y(),c.analysis_preview.y())
+        self.assertLessEqual(c.analysis_preview.height(),420)
+
     def test_ai_provider_switch_isolates_keys_history_and_pending_plan(self):
         w=self.w
         self.assertEqual(w.active_ai_provider,'anthropic')
