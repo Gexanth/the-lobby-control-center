@@ -59,6 +59,7 @@ class StreamPanel(QWidget):
 
     def running_changed(self, checked):
         self.status.setText('Überwachung gestartet; nächste Prüfung innerhalb einer Minute.' if checked else 'Überwachung gestoppt. Bereits laufender Versand kann noch abschließen.')
+        self.community.dashboard()
 
     def refresh(self):
         c = self.community; row = c.chosen_creator(); client = self.host.discord_client
@@ -102,6 +103,7 @@ class StreamPanel(QWidget):
                 self.history.setText('\n'.join(lines) or 'Noch kein Live-Abruf oder Versand protokolliert.')
             except (OSError, sqlite3.Error) as exc:
                 self.history.setText('Lokales Stream-Protokoll nicht lesbar. Überwachung gestoppt.'); self.running.setChecked(False)
+        self.community.dashboard()
 
     def resolve_source(self):
         c = self.community; row = c.chosen_creator(); client = self.host.discord_client
@@ -196,3 +198,4 @@ class StreamPanel(QWidget):
                 self.host.run_discord_job(send, sent, failed)
             except (ValueError, OSError, sqlite3.Error) as exc: failed(str(exc))
         self.host.run_discord_job(lambda: api.live(cfg), checked, failed)
+

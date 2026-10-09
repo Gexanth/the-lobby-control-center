@@ -319,3 +319,15 @@ API-Referenzen:
 - https://developers.google.com/youtube/v3/docs/channels/list
 - https://developers.google.com/youtube/v3/docs/search/list
 - https://developers.google.com/youtube/v3/docs/videos/list
+
+## Dashboard stream health (0.4.5)
+
+The Dashboard now summarizes the selected server's locally configured stream
+sources and existing `streams.sqlite3` journal: active/paused setup, whether
+monitoring is running in this app session, current/due/never-checked sources,
+errors, confirmed sends and unclear attempts. The card links directly to Creator
+Hub. It performs no Twitch, YouTube or Discord request and does not start polling.
+If no journal exists, the read-only overview does not create one. Historical send
+counts intentionally remain after a creator is removed because they are part of
+the server's at-most-once delivery record.
+

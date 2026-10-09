@@ -20,6 +20,21 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 Keep the existing source-update protocol, dependencies, task data and credential storage compatible. Validate before publishing; report exact completed scope and remaining limits to the owner.
 
+## 0.4.5 — Dashboard: Stream-Betriebszustand
+
+Die vierte Roadmap-Stufe beginnt mit einer serverbezogenen Stream-Karte im
+Dashboard. Sie fasst nur gespeicherte Creator-Konfiguration und das vorhandene
+lokale Prüf-/Versandjournal zusammen: aktiv/pausiert, Sitzungsüberwachung,
+aktuell/fällig/ungeprüft/fehlerhaft sowie bestätigt/unklar versendet. Ein direkter
+Weg führt zurück in den Creator Hub. Das Lesen ist lokal und schreibgeschützt;
+ohne Journal wird keine Datenbank erzeugt. Es gibt keine zusätzliche Anbieter-
+oder Discord-Anfrage und keine Behauptung eines dauerhaft laufenden Dienstes.
+
+Nächster Schritt derselben Dashboard-Stufe: echte vorhandene Warnzustände aus
+Activity System, Lobby Night und Creator Hub priorisiert zusammenführen. Danach
+folgt die KI-Serveranalyse, ausschließlich mit belegten Daten und sichtbaren
+Einschränkungen.
+
 ## 0.3.7 — Activity System reliability
 
 Returned to the first roadmap stage for a concrete accuracy gap: stored measurements now show their capture timestamp and explicitly refer to the 24h before that capture. Current, stale (>6h), limited/unconfirmed, invalid and future-dated measurements are distinguished. Existing minute timer refreshes age feedback and participation recommendations without new requests; edited drafts and historical snapshots remain intact. An unconfirmed empty response is not displayed as a reliable zero. No fabricated activity or new sources. Runtime for new captures remains a connected bot with View Channel and Read Message History in the selected channel; local feedback also works offline.
@@ -143,3 +158,4 @@ first two Twitch sources at two-minute intervals and starve later creators. Pick
 the never-checked/oldest-checked due source first. Added a UI regression where an
 already-due first creator must yield to a never-checked second creator. 87 tests
 pass with Qt and zero skips. Same opt-in and credential requirements as 0.4.3.
+

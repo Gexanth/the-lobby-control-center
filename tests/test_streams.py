@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 from community import CommunityStore
 from lobby import Lobby
-from streams import StreamAPI, StreamError, StreamJournal, source_input, save_config, set_enabled, send_stream
+from streams import StreamAPI, StreamError, StreamJournal, source_input, save_config, set_enabled, send_stream, stream_overview
 
 G='930828728966217728'; C='1515362180281663610'; M='123456789012345678'
 SOURCE={'provider':'twitch','source_id':'1234','name':'Example','url':'https://twitch.tv/example'}
@@ -102,6 +102,24 @@ class StreamTests(unittest.TestCase):
         with self.assertRaises(StreamError):StreamJournal(self.root).start_check(G,dict(provider='youtube',source_id='extra'),now=2001)
         j.start_check(G,dict(provider='youtube',source_id='extra'),now=2000+86401)
 
+    def test_dashboard_overview_reads_real_journal_without_mutation(self):
+        set_enabled(self.store,G,self.row['id'],True)
+        cfg=self.store.guild(G)['creators'][0]['stream_config']
+        empty_root=self.root/'empty';empty_root.mkdir()
+        empty=stream_overview(empty_root,G,self.store.guild(G)['creators'],now=1000)
+        self.assertEqual((empty['active'],empty['never'],empty['sent']),(1,1,0))
+        self.assertFalse(empty['journal']);self.assertFalse((empty_root/'streams.sqlite3').exists())
+        self.journal.start_check(G,cfg,now=1000);self.journal.record(G,cfg,'Fehler: Anbieter nicht erreichbar')
+        self.journal.reserve(G,cfg,LIVE)
+        other=dict(cfg,source_id='other',provider='youtube',enabled=True,creator_url='https://youtube.com/@other')
+        self.store.guild(G)['creators'].append({'id':'other','name':'Other','url':'https://youtube.com/@other','status':'Angenommen','stream_config':other})
+        state=stream_overview(self.root,G,self.store.guild(G)['creators'],now=1200)
+        self.assertEqual((state['configured'],state['active'],state['paused']),(2,2,0))
+        self.assertEqual((state['current'],state['due'],state['never']),(0,1,1))
+        self.assertEqual((state['errors'],state['sent'],state['unclear']),(1,0,1))
+        isolated=stream_overview(self.root,'123456789012345679',[],now=1200)
+        self.assertEqual((isolated['sent'],isolated['unclear']),(0,0))
+
     def client(self,mode='ok'):
         self.posts=[]
         def transport(method,path,payload,reason):
@@ -140,3 +158,4 @@ class StreamTests(unittest.TestCase):
         self.assertEqual(self.posts,[])
         client.writes=False
         with self.assertRaises(StreamError):send_stream(client,self.journal,G,self.cfg,dict(LIVE,id='other'))
+

@@ -1,8 +1,10 @@
 """Dashboard presentation; consumes existing data without network requests."""
 from datetime import datetime,timezone
+import sqlite3
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton
 from community import parse_time
+from streams import stream_overview
 
 def label(text,name=None):
     widget=QLabel(text);widget.setTextFormat(Qt.PlainText);widget.setWordWrap(True)
@@ -50,7 +52,10 @@ class DashboardPage(QWidget):
         body.addWidget(self.summary);body.addWidget(self.task_preview,1)
         button=QPushButton('Aufgaben verwalten');button.clicked.connect(lambda:host.open_page(3));body.addWidget(button);row.addWidget(frame,1);layout.addLayout(row)
 
-        frame,body=panel('Community-Status');self.community_summary=label('Noch kein Server für lokale Community-Daten ausgewählt.','muted');body.addWidget(self.community_summary);layout.addWidget(frame)
+        row=QHBoxLayout();row.setSpacing(14)
+        frame,body=panel('Community-Status');self.community_summary=label('Noch kein Server für lokale Community-Daten ausgewählt.','muted');body.addWidget(self.community_summary);row.addWidget(frame,1)
+        frame,body=panel('Stream-Überwachung');self.stream_health=label('Wähle unter Community einen Server, um lokale Stream-Zustände zu sehen.','muted');body.addWidget(self.stream_health,1)
+        button=QPushButton('Creator Hub öffnen');button.clicked.connect(lambda:host.open_page(7,2));body.addWidget(button);row.addWidget(frame,1);layout.addLayout(row)
         layout.addWidget(label('Serverwerte werden beim Laden der Discord-Übersicht aktualisiert. Lokale Planung ist auch offline verfügbar.','footnote'));layout.addStretch()
 
     def set_connected(self,data):
@@ -67,3 +72,18 @@ class DashboardPage(QWidget):
         now=datetime.now(timezone.utc)
         upcoming=sorted((n for n in store.guild(guild)['nights'] if n['status']=='geplant' and parse_time(n['when'])>now),key=lambda n:parse_time(n['when']))
         self.nights.setText('\n\n'.join(parse_time(n['when']).astimezone().strftime('%d.%m. · %H:%M')+'  '+n['title'][:90] for n in upcoming[:3]) if upcoming else 'Keine anstehende Lobby Night. Plane einen Termin im Community-Bereich.')
+
+    def refresh_streams(self,guild,store,monitoring=False):
+        if not guild:
+            self.stream_health.setText('Wähle unter Community einen Server, um lokale Stream-Zustände zu sehen.')
+            return
+        try:
+            state=stream_overview(store.path.parent,guild,store.guild(guild)['creators'])
+            session='läuft in dieser App-Sitzung' if monitoring else 'ist in dieser App-Sitzung gestoppt'
+            checks=f"Abrufe aktiver Quellen: {state['current']} aktuell · {state['due']} fällig · {state['never']} noch nie"
+            if state['errors']:checks+=f" · {state['errors']} mit Fehler/unklarem Abbruch"
+            deliveries=f"Lokales Versandprotokoll: {state['sent']} bestätigt gesendet · {state['unclear']} unklar"
+            if not state['journal']:deliveries='Lokales Versandprotokoll: noch keine Abrufe oder Sendungen gespeichert'
+            self.stream_health.setText(f"{state['configured']} eingerichtet · {state['active']} aktiv · {state['paused']} pausiert/erneut zu prüfen\nÜberwachung {session}.\n{checks}\n{deliveries}")
+        except (OSError,sqlite3.Error,ValueError):
+            self.stream_health.setText('Lokales Stream-Protokoll ist nicht lesbar. Creator Hub öffnen und Überwachung gestoppt lassen.')

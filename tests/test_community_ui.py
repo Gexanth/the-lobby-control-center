@@ -281,6 +281,21 @@ class CommunityAccessTests(unittest.TestCase):
         self.w.stack.setCurrentIndex(0);self.app.processEvents()
         self.assertEqual(self.w.stack.currentWidget().horizontalScrollBar().maximum(),0)
 
+    def test_dashboard_stream_health_uses_local_records_and_session_state(self):
+        from streams import StreamJournal,save_config,set_enabled
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        c.offline_server.setCurrentText(guild);c.open_offline()
+        row=c.store.save_creator(guild,'Alpha','https://twitch.tv/alpha','Angenommen')
+        cfg={'provider':'twitch','source_id':'1234','name':'Alpha','url':'https://twitch.tv/alpha'}
+        save_config(c.store,guild,row['id'],cfg,channel,row['url']);set_enabled(c.store,guild,row['id'],True)
+        journal=StreamJournal(c.store.path.parent);saved=c.store.guild(guild)['creators'][0]['stream_config']
+        journal.start_check(guild,saved,now=1);journal.record(guild,saved,'Kein öffentlicher Live-Stream erkannt')
+        c.dashboard();self.assertIn('1 eingerichtet · 1 aktiv',self.w.dashboard_page.stream_health.text())
+        self.assertIn('1 fällig',self.w.dashboard_page.stream_health.text());self.assertIn('gestoppt',self.w.dashboard_page.stream_health.text())
+        with patch('streams.urlopen',side_effect=AssertionError('dashboard must stay local')):c.dashboard()
+        c.stream_panel.running.setChecked(True);self.assertIn('läuft in dieser App-Sitzung',self.w.dashboard_page.stream_health.text())
+        c.stream_panel.running.setChecked(False)
+
     def test_creator_edit_filter_and_keyboard_selection(self):
         c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()
         c.creator_name.setText('Alpha');c.creator_url.setText('https://www.twitch.tv/alpha');c.add_creator()
@@ -471,3 +486,4 @@ class CommunityAccessTests(unittest.TestCase):
         p.running.setChecked(True)
         with patch.object(p,'check_source') as check:p.tick()
         self.assertEqual(check.call_args.args[0]['id'],new['id'])
+

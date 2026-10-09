@@ -237,6 +237,49 @@ class StreamJournal:
             return db.execute('SELECT stream,state,message,channel FROM deliveries WHERE source=? ORDER BY checked DESC LIMIT 5', (self.source_key(guild, cfg),)).fetchall()
 
 
+def stream_overview(path, guild, creators, now=None):
+    """Summarize saved configuration and an existing journal without creating or changing it."""
+    now = time.time() if now is None else now
+    configured = [row for row in creators if row.get('stream_config')]
+    active = []
+    for row in configured:
+        cfg = row['stream_config']
+        if row.get('status') == 'Angenommen' and cfg.get('enabled') and cfg.get('creator_url') == row.get('url'):
+            active.append(cfg)
+    result = {'configured': len(configured), 'active': len(active), 'paused': len(configured) - len(active),
+              'current': 0, 'due': 0, 'never': len(active), 'errors': 0, 'sent': 0, 'unclear': 0,
+              'latest': None, 'journal': False}
+    path = path / 'streams.sqlite3'
+    if not path.is_file():
+        return result
+    # Read-only URI prevents this dashboard path from creating or migrating state.
+    with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True, timeout=5) as db:
+        result['journal'] = True
+        checks = {}
+        if active:
+            keys = [StreamJournal.source_key(guild, cfg) for cfg in active]
+            marks = ','.join('?' for _ in keys)
+            checks = {source: (checked, status) for source, checked, status in
+                      db.execute(f'SELECT source,checked,status FROM checks WHERE source IN ({marks})', keys)}
+        result['never'] = 0
+        for cfg in active:
+            state = checks.get(StreamJournal.source_key(guild, cfg))
+            if not state:
+                result['never'] += 1
+                continue
+            checked, status = state
+            result['latest'] = max(result['latest'] or checked, checked)
+            interval = 1800 if cfg.get('provider') == 'youtube' else 120
+            result['due' if now - checked >= interval else 'current'] += 1
+            if str(status).startswith('Fehler:') or 'unbekannt' in str(status).casefold():
+                result['errors'] += 1
+        rows = db.execute('SELECT state,count(*) FROM deliveries WHERE guild=? GROUP BY state', (guild,)).fetchall()
+        counts = dict(rows)
+        result['sent'] = counts.get('sent', 0)
+        result['unclear'] = counts.get('uncertain', 0) + counts.get('sending', 0)
+    return result
+
+
 def notification(cfg, stream):
     # No role/everyone mentions, embeds or remote title formatting needed.
     label = re.sub(r'[*_`~<>\\\[\]\r\n]', '', str(cfg['name']))[:100]
@@ -264,3 +307,4 @@ def send_stream(client, journal, guild, cfg, stream):
         journal.finish(key, 'uncertain')
         raise StreamError('Versand unklar. Nachricht in Discord prüfen; dieser Stream wird nicht erneut gesendet.') from None
     return 'Stream-Meldung gesendet.'
+

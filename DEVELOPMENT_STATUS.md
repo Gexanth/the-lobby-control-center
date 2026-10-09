@@ -1,3 +1,25 @@
+## 0.4.5 — Dashboard: reale Stream-Gesundheit
+
+Die Dashboard-Stufe beginnt mit einer operativen Stream-Übersicht. Für den lokal
+ausgewählten Server zeigt sie eingerichtete, aktive und pausierte Quellen, den
+Sitzungszustand der Überwachung, aktuelle/fällige/noch nie geprüfte Quellen sowie
+bestätigte und unklare Versandversuche. Grundlage sind ausschließlich die aktuelle
+Creator-Konfiguration und das bestehende lokale SQLite-Protokoll. Die Übersicht
+öffnet Creator Hub direkt und aktualisiert sich bei Zustandsänderungen.
+
+Der Dashboard-Leseweg öffnet ein vorhandenes Protokoll schreibgeschützt und legt
+bei einem neuen Server keine Datei an. Er führt keine Twitch-, YouTube- oder
+Discord-Anfrage aus, startet keine Überwachung und zeigt keine erfundenen Live-
+oder Aktivitätswerte. Historische Versandzahlen bleiben nach Entfernen eines
+Creators absichtlich erhalten. 89 Tests passieren mit Qt und ohne übersprungene
+Tests, darunter Server-Isolation, fällige/ungeprüfte/fehlerhafte Abrufe, unklare
+Versandreservierungen, read-only Verhalten und die tatsächliche Dashboard-Anzeige.
+Keine echte Discord-Änderung und kein bezahlter API-Aufruf.
+
+Nächster Dashboard-Schritt: die vorhandenen Activity-, Lobby-Night- und Creator-
+Zustände zu einer klaren Aufmerksamkeitsliste zusammenführen. Erst danach folgt
+die KI-Serveranalyse auf diesen belegten lokalen Grundlagen.
+
 ## 0.4.4 — Fair polling order
 
 Final multi-creator review found that a fixed list scan could repeatedly select the
@@ -143,3 +165,4 @@ Next: role selection from loaded server overview and verified stream-source conf
 Validation: 51 tests passed, including fake-transport category single-target delete retaining children, ordinary channel delete, changed snapshot, foreign/protected targets, disabled writes, AI target/field validation, exact-ID dialog and modal concurrency guard. No actual Discord delete or paid AI request executed. New UI screenshot uses isolated example data. Requirements, source-update protocol and starters unchanged.
 
 Roadmap: this requested server-management/AI capability is additional to the ordered community roadmap; next planned Creator Hub step remains easier role selection and verified stream-source setup.
+

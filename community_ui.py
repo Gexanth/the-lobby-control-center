@@ -288,7 +288,9 @@ class CommunityPage(QWidget):
 
     def dashboard(self):
         if not hasattr(self.host,'community_summary'):return
-        if hasattr(self.host,'dashboard_page'):self.host.dashboard_page.refresh_nights(self.guild_id,self.store)
+        if hasattr(self.host,'dashboard_page'):
+            self.host.dashboard_page.refresh_nights(self.guild_id,self.store)
+            self.host.dashboard_page.refresh_streams(self.guild_id,self.store,self.stream_panel.running.isChecked())
         if not self.guild_id:self.host.community_summary.setText('Noch kein Server für lokale Community-Daten ausgewählt.');return
         g=self.store.guild(self.guild_id)
         states=[schedule_state(n) or n.get('poll_delivery',{}).get('state') for n in g['nights']]
@@ -610,3 +612,4 @@ class CommunityPage(QWidget):
         self.host.stack.setCurrentIndex(1)
         self.host.ai_input.setText('Analysiere die Serverstruktur und die verfügbaren Community-Daten. Benenne Datenlücken, drei belegte Erkenntnisse und drei priorisierte Mitmachideen für Activity System, Lobby Night und Creator Hub. Keine Kanalaktion planen; nur antworten. Keine vollständige Aktivitätsmessung behaupten.')
         self.host.ask_ai()
+
