@@ -3,7 +3,7 @@ from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
 from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
-from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked
+from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
 from engagement import engagement_ideas,activity_quality
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
@@ -59,12 +59,18 @@ class CommunityPage(QWidget):
         self.nights=QListWidget();self.nights.itemSelectionChanged.connect(self.select_night);self.nights.setMaximumHeight(120);n.addWidget(self.nights)
         self.night_review=QLabel('Noch keinen gespeicherten Lobby-Night-Plan ausgewählt.');self.night_review.setWordWrap(True);self.night_review.setTextFormat(Qt.PlainText);n.addWidget(self.night_review)
         self.night_title.textChanged.connect(self.refresh_night_readiness);self.night_time.textChanged.connect(self.refresh_night_readiness);self.options.textChanged.connect(self.refresh_night_readiness)
+        row=QHBoxLayout();self.night_reminder=QComboBox()
+        for label,value in [('Zum Termin',0),('15 Minuten vorher',15),('30 Minuten vorher',30),('1 Stunde vorher',60),('1 Tag vorher',1440),('Ausgeschaltet',None)]:self.night_reminder.addItem(label,value)
+        row.addWidget(self.night_reminder);self.night_reminder_save=QPushButton('Erinnerung für Auswahl speichern');self.night_reminder_save.clicked.connect(self.save_night_reminder);row.addWidget(self.night_reminder_save);n.addLayout(row)
+        self.night_reminder_status=QLabel('Erinnerungen erscheinen nur lokal bei laufender App.');self.night_reminder_status.setWordWrap(True);n.addWidget(self.night_reminder_status)
+        self.poll_readiness=QLabel();self.poll_readiness.setWordWrap(True);self.poll_readiness.setTextFormat(Qt.PlainText);n.addWidget(self.poll_readiness)
         n.addWidget(QLabel('Discord-Abstimmung: Zielkanal und Laufzeit'))
         poll_row=QHBoxLayout();self.poll_channel=QComboBox();poll_row.addWidget(self.poll_channel,2)
         self.poll_hours=QComboBox()
         for hours in (1,6,12,24,48,72,168):self.poll_hours.addItem(str(hours)+' Stunden',hours)
         self.poll_hours.setCurrentIndex(3);poll_row.addWidget(self.poll_hours,1);n.addLayout(poll_row)
         self.poll_multi=QCheckBox('Mehrere Spielvorschläge auswählbar');n.addWidget(self.poll_multi)
+        self.poll_channel.currentIndexChanged.connect(self.refresh_poll_readiness);self.poll_hours.currentIndexChanged.connect(self.refresh_poll_readiness);self.poll_multi.toggled.connect(self.refresh_poll_readiness)
         self.poll_publish=QPushButton('Abstimmung prüfen und veröffentlichen');self.poll_publish.clicked.connect(lambda:self.review_poll(False));n.addWidget(self.poll_publish)
         self.poll_send_time=QLineEdit();self.poll_send_time.setPlaceholderText('Veröffentlichungszeit: JJJJ-MM-TT HH:MM (lokale PC-Zeit)');n.addWidget(self.poll_send_time)
         self.poll_schedule=QPushButton('Veröffentlichung nach Vorschau planen');self.poll_schedule.clicked.connect(lambda:self.review_poll(True));n.addWidget(self.poll_schedule)
@@ -88,11 +94,14 @@ class CommunityPage(QWidget):
         form.addWidget(QLabel('Creator-Name'));self.creator_name=QLineEdit();self.creator_name.setPlaceholderText('Name des Creators');form.addWidget(self.creator_name)
         form.addWidget(QLabel('Twitch- oder YouTube-Kanallink'));self.creator_url=QLineEdit();self.creator_url.setPlaceholderText('https://www.twitch.tv/kanal');form.addWidget(self.creator_url)
         form.addWidget(QLabel('Bearbeitungsstand'));self.creator_status=QComboBox();self.creator_status.addItems(['Bewerbung','Angenommen','Pausiert']);form.addWidget(self.creator_status)
+        form.addWidget(QLabel('Interne Bewerbungsnotizen (nur lokal, maximal 2000 Zeichen)'))
+        self.creator_notes=QTextEdit();self.creator_notes.setMaximumHeight(95);self.creator_notes.setPlaceholderText('Offene Fragen, Gesprächsstand, nächste Schritte …');form.addWidget(self.creator_notes)
+        self.creator_next=QLabel('Neue Bewerbung anlegen.');self.creator_next.setWordWrap(True);self.creator_next.setTextFormat(Qt.PlainText);form.addWidget(self.creator_next)
         self.creator_save=QPushButton('Bewerbung speichern');self.creator_save.setObjectName('primary');self.creator_save.clicked.connect(self.add_creator);form.addWidget(self.creator_save)
         self.creator_new=QPushButton('Neue Bewerbung beginnen');self.creator_new.clicked.connect(self.new_creator);form.addWidget(self.creator_new)
         self.creator_copy=QPushButton('Gespeicherten Kanallink kopieren');self.creator_copy.clicked.connect(self.copy_creator_link);form.addWidget(self.creator_copy)
         self.creator_remove=QPushButton('Ausgewählten Creator entfernen');self.creator_remove.clicked.connect(self.remove_creator);form.addWidget(self.creator_remove)
-        note=QLabel('Statusänderungen bleiben lokal. Rollenvergabe und Stream-Benachrichtigungen sind noch nicht verbunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns)
+        note=QLabel('Statusänderungen bleiben lokal. Rollen können unten nach Prüfung zugewiesen werden. Automatische Stream-Benachrichtigungen sind hier noch nicht angebunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns)
         role_frame=QFrame();self.creator_role_frame=role_frame;role_frame.setObjectName('card');role_form=QVBoxLayout(role_frame);role_form.setContentsMargins(18,18,18,18)
         title=QLabel('Discord-Rolle verknüpfen');title.setObjectName('cardTitle');role_form.addWidget(title)
         hint=QLabel('Nur für gespeicherte, angenommene Creator. IDs in Discord mit aktiviertem Entwicklermodus kopieren. Eine Verknüpfung allein vergibt keine Rolle.');hint.setWordWrap(True);role_form.addWidget(hint)
@@ -105,7 +114,7 @@ class CommunityPage(QWidget):
         self.creator_role_status=QLabel('Keine Verknüpfung ausgewählt.');self.creator_role_status.setWordWrap(True);self.creator_role_status.setTextFormat(Qt.PlainText);role_form.addWidget(self.creator_role_status);c.addWidget(role_frame);c.addStretch()
         self.creator_search.textChanged.connect(self.refresh_creators);self.creator_filter.currentTextChanged.connect(self.refresh_creators)
         x=page('Serveranalyse')
-        info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. OpenAI-API-Schlüssel unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
+        info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. API-Schlüssel für Claude oder OpenAI unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
         b=QPushButton('KI-Analyse im Assistenten starten');b.clicked.connect(self.analyze);x.addWidget(b);x.addStretch()
         e=page('Mitmachimpulse')
         intro=QLabel('Konkrete Gesprächsideen aus der ausgewählten Aktivitätsmessung. Die Begründung zeigt, ob Daten verwendbar sind. Kein API-Schlüssel und keine zusätzlichen Abrufe erforderlich.');intro.setWordWrap(True);e.addWidget(intro)
@@ -119,7 +128,7 @@ class CommunityPage(QWidget):
         self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
         self.tabs.setEnabled(True)
-        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.refresh_activity_feedback);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
+        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.refresh_activity_feedback);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.refresh_poll_readiness);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
         self.refresh_night_readiness()
         self.bind(None)
     def bind(self,data):
@@ -173,6 +182,8 @@ class CommunityPage(QWidget):
         self.poll_results.setEnabled(connected and self.host.discord_worker is None and state=='sent')
         self.poll_link.setEnabled(state=='sent');self.poll_reset.setVisible(state in ('sending','uncertain'))
         self.refresh_creator_role_controls()
+        self.refresh_poll_readiness()
+        if hasattr(self,"night_reminder_save"):self.night_reminder_save.setEnabled(bool(n and n.get("status")=="geplant" and self.host.discord_worker is None))
     def open_connection(self):
         if self.guild_id:self.host.guild_id.setText(self.guild_id)
         self.host.stack.setCurrentIndex(2)
@@ -331,6 +342,33 @@ class CommunityPage(QWidget):
         for widget in (self.night_title,self.night_time,self.options):widget.setEnabled(not locked)
         self.night_save.setEnabled(not locked);self.night_save.setText('Änderungen am Entwurf speichern')
         self.show_poll_status()
+    def save_night_reminder(self):
+        n=self.chosen_night()
+        if not n or self.host.discord_worker is not None:return
+        if self.guard(lambda:self.store.set_night_reminder(self.guild_id,n['id'],self.night_reminder.currentData())):
+            self.show_poll_status();self.status.setText('Lokale Erinnerung gespeichert. Keine Discord-Nachricht geplant.')
+
+    def refresh_poll_readiness(self,*_):
+        if not hasattr(self,'poll_readiness') or not hasattr(self,'poll_multi'):return
+        n=self.chosen_night()
+        if not n:self.poll_readiness.setText('Veröffentlichung: zuerst einen gespeicherten Plan auswählen.');return
+        state=n.get('poll_delivery',{}).get('state')
+        if state=='scheduled' and schedule_state(n) in ('cancelled','expired'):
+            self.poll_readiness.setText('Zeitplan gestoppt: Termin abgesagt oder abgelaufen. Keine Veröffentlichung.');return
+        if state in ('sent','scheduled','sending','uncertain'):
+            self.poll_readiness.setText({'sent':'Abstimmung veröffentlicht. Ergebnisse können geladen werden.','scheduled':'Veröffentlichung eingeplant. Die App muss laufen und verbunden sein.','sending':'Versand läuft oder wurde unterbrochen. Status in Discord prüfen.','uncertain':'Versand unklar. Vor jeder Wiederholung in Discord prüfen.'}[state]);return
+        missing=[]
+        client=self.host.discord_client
+        if not client or client.guild!=self.guild_id:missing.append('mit diesem Discord-Server verbinden')
+        if not self.poll_channel.currentData():missing.append('Zielkanal auswählen')
+        try:
+            night_fields(n['title'],n['when'],'\n'.join(n['options']))
+            if n.get('status')!='geplant':raise CommunityError('Termin ist abgesagt.')
+            if self.poll_channel.currentData():poll_spec(self.guild_id,deepcopy(n),self.poll_channel.currentData(),self.poll_hours.currentData(),self.poll_multi.isChecked())
+        except (CommunityError,ValueError,TypeError) as exc:missing.append(str(exc))
+        if self.host.discord_worker is not None:missing.append('laufenden Vorgang abwarten')
+        self.poll_readiness.setText('Noch offen: '+ ' · '.join(missing) if missing else 'Bereit für die Vorschau. Bot-Rechte werden erst beim Discord-Aufruf geprüft; noch nicht veröffentlicht.')
+
     def chosen_night(self):
         item=self.nights.currentItem()
         return next((n for n in self.store.guild(self.guild_id)['nights'] if item and n['id']==item.data(Qt.UserRole)),None) if self.guild_id else None
@@ -355,6 +393,13 @@ class CommunityPage(QWidget):
         elif d.get('state') in ('sending','uncertain'):self.poll_status.setText('Versand unklar. Zuerst in Discord prüfen; kein automatischer Neuversand.')
         else:self.poll_status.setText('Noch nicht veröffentlicht. Bot benötigt Kanal ansehen, Nachrichten senden und Abstimmungen erstellen.')
         self.refresh_connection_controls()
+        if n:
+            minutes=n.get('reminder_minutes',0);self.night_reminder.setCurrentIndex(self.night_reminder.findData(minutes))
+            when=parse_time(n['when'])-timedelta(minutes=minutes or 0)
+            self.night_reminder_status.setText('Erinnerung ausgeschaltet.' if minutes is None else ('Bereits erinnert · ' if n.get('reminded') else 'Lokale Erinnerung · ')+when.astimezone().strftime('%d.%m.%Y %H:%M'))
+        else:self.night_reminder_status.setText('Erinnerung: zuerst einen gespeicherten Plan auswählen.')
+        self.night_reminder_save.setEnabled(bool(n and n.get('status')=='geplant' and self.host.discord_worker is None))
+        self.refresh_poll_readiness()
     def review_poll(self,scheduled=False):
         client=self.host.discord_client;n=self.chosen_night()
         if self.host.discord_worker is not None:return
@@ -437,7 +482,7 @@ class CommunityPage(QWidget):
             due=self.store.due_nights(self.guild_id)
             for n in due:
                 self.store.mark_reminded(self.guild_id,n['id'])
-                QMessageBox.information(self,'Lobby Night Erinnerung',n['title']+' ist fällig: '+parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M'))
+                QMessageBox.information(self,'Lobby Night Erinnerung',n['title']+' · Termin: '+parse_time(n['when']).astimezone().strftime('%d.%m.%Y %H:%M'))
         except (CommunityError,OSError,ValueError) as exc:self.status.setText(str(exc))
     def refresh_creators(self,*_):
         if not hasattr(self,'creator_matches'):return
@@ -457,7 +502,7 @@ class CommunityPage(QWidget):
         self.refresh_creator_role_controls()
     def new_creator(self):
         self.creator_edit_id=None;self.creator_edit_guild=None
-        self.creator_name.clear();self.creator_url.clear();self.creator_status.setCurrentIndex(0)
+        self.creator_name.clear();self.creator_url.clear();self.creator_status.setCurrentIndex(0);self.creator_notes.clear();self.creator_next.setText('Neue Bewerbung anlegen.')
         self.creator_editor_title.setText('Neue Bewerbung');self.creator_save.setText('Bewerbung speichern')
         self.creators.setCurrentRow(-1);self.creator_copy.setEnabled(False);self.creator_remove.setEnabled(False)
         if hasattr(self,'creator_member_id'):self.creator_member_id.clear();self.creator_role_id.clear();self.creator_role_status.setText('Keine Verknüpfung ausgewählt.');self.refresh_creator_role_controls()
@@ -469,7 +514,7 @@ class CommunityPage(QWidget):
         if not self.creator_edit_id and any(x['url']==url for x in self.store.guild(self.guild_id)['creators']):
             self.status.setText('Kanallink bereits gespeichert. Den bestehenden Creator zum Bearbeiten auswählen.');return
         def save():
-            row=self.store.save_creator(self.guild_id,self.creator_name.text(),url,self.creator_status.currentText(),self.creator_edit_id)
+            row=self.store.save_creator(self.guild_id,self.creator_name.text(),url,self.creator_status.currentText(),self.creator_edit_id,notes=self.creator_notes.toPlainText())
             self.creator_edit_id=row['id'];self.creator_edit_guild=self.guild_id
         if self.guard(save):
             self.creator_editor_title.setText('Creator bearbeiten');self.creator_save.setText('Änderungen speichern')
@@ -482,6 +527,7 @@ class CommunityPage(QWidget):
         row=next((x for x in self.store.guild(self.guild_id)['creators'] if x['id']==item.data(Qt.UserRole)),None)
         if not row:return
         self.creator_edit_id=row['id'];self.creator_edit_guild=self.guild_id
+        self.creator_notes.setPlainText(row.get('notes',''));self.creator_next.setText(creator_next_step(row))
         self.creator_name.setText(row['name']);self.creator_url.setText(row['url']);self.creator_status.setCurrentText(row['status'])
         self.creator_editor_title.setText('Creator bearbeiten');self.creator_save.setText('Änderungen speichern')
         link=row.get('discord_link',{});self.creator_member_id.setText(link.get('member_id',''));self.creator_role_id.setText(link.get('role_id',''))
@@ -509,6 +555,7 @@ class CommunityPage(QWidget):
     def refresh_creator_role_controls(self):
         if not hasattr(self,'creator_role_apply'):return
         row=self.chosen_creator();idle=self.host.discord_worker is None
+        if hasattr(self,'creator_next'):self.creator_next.setText(creator_next_step(row) if row else 'Neue Bewerbung anlegen oder gespeicherten Creator auswählen.')
         self.creator_link_save.setEnabled(bool(row) and idle)
         self.creator_save.setEnabled(bool(self.guild_id) and idle);self.creator_remove.setEnabled(bool(row) and idle)
         for widget in (self.creators,self.creator_new,self.creator_search,self.creator_filter):widget.setEnabled(idle)

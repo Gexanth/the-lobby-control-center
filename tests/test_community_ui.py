@@ -51,6 +51,19 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertEqual(w.api_key_input.text(),'')
         self.assertEqual(w.ai_keys['anthropic'],'claude-test-key')
 
+    def test_night_reminder_and_creator_notes_ui(self):
+        from datetime import datetime,timedelta
+        c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        c.night_title.setText('Test Night');c.night_time.setText((datetime.now()+timedelta(days=2)).isoformat());c.options.setPlainText('A\nB');c.save_night()
+        self.assertIn('verbinden',c.poll_readiness.text())
+        c.night_reminder.setCurrentIndex(c.night_reminder.findData(30));c.save_night_reminder()
+        self.assertEqual(c.chosen_night()['reminder_minutes'],30)
+        c.creator_name.setText('Example');c.creator_url.setText('https://twitch.tv/example');c.creator_notes.setPlainText('Rückfrage zum Kanal');c.add_creator()
+        c.creators.setCurrentRow(0);c.select_creator(c.creators.currentItem())
+        self.assertEqual(c.creator_notes.toPlainText(),'Rückfrage zum Kanal')
+        self.assertIn('Bewerbung prüfen',c.creator_next.text())
+        c.new_creator();self.assertEqual(c.creator_notes.toPlainText(),'')
+
     def test_all_tabs_available_offline_and_connection_shortcut(self):
         c=self.w.community
         self.assertTrue(c.tabs.isEnabled());self.assertFalse(c.scan.isEnabled())

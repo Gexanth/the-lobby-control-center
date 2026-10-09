@@ -241,3 +241,18 @@ Implementiert über Anthropic Messages API mit erzwungenem `lobby_plan`-Tool und
 anschließender lokaler Schema-/Kanalprüfung. Keine automatische Wiederholung und
 kein automatischer Wechsel zu einem anderen Anbieter bei Fehlern.
 Referenz: https://platform.claude.com/docs/en/api/messages/create
+
+## Community 0.4.2
+
+Unter Community → Lobby Night einen gespeicherten Termin auswählen. Die neue
+Veröffentlichungsübersicht nennt offene Schritte; sie bestätigt keine ungeprüften
+Bot-Rechte. Die lokale Erinnerung lässt sich auf den Termin, 15/30/60 Minuten oder
+einen Tag vorher setzen oder ausschalten. Zum Speichern den eigenen Erinnerungs-
+button verwenden. App und passende Serverauswahl müssen aktiv sein. Verpasste
+Erinnerungen werden bei erneuter Auswahl nachgeholt; es wird nichts an Discord gesendet.
+
+Unter Creator Hub stehen interne Bewerbungsnotizen und ein nächster Schritt pro
+gespeichertem Creator bereit. Notizen bleiben lokal und gehen nicht in die
+KI-Serveranalyse. Angenommen, Rolle zuletzt bestätigt und Stream-Benachrichtigungen
+eingerichtet sind unterschiedliche Zustände: Die App richtet Stream-Benachrichtigungen
+noch nicht ein. Pausieren entfernt keine bestehende Discord-Rolle.

@@ -1,3 +1,24 @@
+## 0.4.2 — Lobby Night readiness and Creator review
+
+User requested both roadmap areas together. Lobby Night now shows missing
+publication prerequisites and durable per-night local reminder choices: at the
+event, 15/30/60/1440 minutes before, or disabled. Existing records retain their
+at-event reminder. Unchanged settings do not rearm a delivered reminder; changed
+settings do. Reminders require the app running and the server selected; missed
+reminders appear when selected again. This does not send Discord reminders.
+
+Creator Hub adds private local review notes (2000 characters maximum) and a
+saved-state next-step guide from application through binding and last-confirmed
+role delivery. Notes survive edits and are excluded from the AI context. The guide
+clearly states that automatic stream notifications still require setup in the
+external bot; no live Twitch/YouTube detector or notification activation claimed.
+The stale OpenAI-only analysis label now includes Claude.
+
+Validation: 72 tests passed with Qt, zero skipped. New tests cover reminder time
+boundaries, disable/reload/deduplication, validation/write rollback, note persistence,
+role binding preservation, AI exclusion, and actual UI save/select/reset paths.
+No real Discord mutation or paid AI request used. No new runtime dependencies.
+
 ## 0.4.1 — Claude provider integration
 
 User-requested integration alongside the roadmap: Claude / Anthropic is the

@@ -99,3 +99,37 @@ class CreatorEditTests(unittest.TestCase):
                     with self.assertRaises(OSError):action()
                     self.assertEqual(json.dumps(store.data,sort_keys=True),before)
             self.assertEqual(json.dumps(CommunityStore(Path(d)).data,sort_keys=True),before)
+
+
+class ReminderAndCreatorTests(unittest.TestCase):
+    def test_reminder_offset_disable_reload_and_no_duplicate(self):
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));now=datetime.now(timezone.utc);due=now+timedelta(hours=2)
+            n=store.add_night('g','Night',due.isoformat(),'A\nB')
+            store.set_night_reminder('g',n['id'],60)
+            self.assertEqual(store.due_nights('g',due-timedelta(minutes=61)),[])
+            self.assertEqual(len(store.due_nights('g',due-timedelta(minutes=60))),1)
+            store.mark_reminded('g',n['id']);store.set_night_reminder('g',n['id'],60)
+            self.assertEqual(store.due_nights('g',due),[])
+            store.set_night_reminder('g',n['id'],None)
+            self.assertEqual(CommunityStore(Path(d)).due_nights('g',due),[])
+    def test_reminder_validation_and_rollback(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));n=store.add_night('g','Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'A\nB')
+            for value in (-1,True,'60',16):
+                with self.assertRaises(CommunityError):store.set_night_reminder('g',n['id'],value)
+            with patch.object(store,'save',side_effect=OSError('disk')),self.assertRaises(OSError):store.set_night_reminder('g',n['id'],30)
+            self.assertNotIn('reminder_minutes',n)
+    def test_creator_notes_preserve_binding_and_stay_out_of_ai(self):
+        from creator_roles import creator_next_step
+        with tempfile.TemporaryDirectory() as d:
+            store=CommunityStore(Path(d));r=store.save_creator('g','Example','https://twitch.tv/example','Bewerbung',notes='PRIVATE REVIEW')
+            row=store.guild('g')['creators'][0];row['discord_link']={'member_id':'1','role_id':'2'};store.save()
+            store.save_creator('g','Example','https://twitch.tv/example','Angenommen',r['id'],notes='Changed')
+            saved=CommunityStore(Path(d)).guild('g')['creators'][0]
+            self.assertEqual(saved['notes'],'Changed');self.assertEqual(saved['discord_link'],row['discord_link'])
+            self.assertNotIn('Changed',json.dumps(store.analysis_context('g')))
+            self.assertIn('prüfen',creator_next_step(saved))
+            with self.assertRaises(CommunityError):store.save_creator('g','Example','https://twitch.tv/example','Angenommen',r['id'],notes='x'*2001)
+            self.assertEqual(store.guild('g')['creators'][0]['notes'],'Changed')

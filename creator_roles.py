@@ -54,3 +54,16 @@ def assign_checked(client,plan):
     member=client.request('GET',f"/guilds/{plan['guild']}/members/{plan['member_id']}")
     if member.get('user',{}).get('id')!=plan['member_id'] or plan['role_id'] not in member.get('roles',[]):raise CommunityError('Rollenvergabe konnte nicht bestätigt werden. Mitglied in Discord prüfen.')
     return {'already_present':False,'audit_warning':result.get('audit_warning') if isinstance(result,dict) else None}
+
+
+def creator_next_step(row):
+    """Explain saved onboarding state without implying live notification setup."""
+    if row['status']=='Bewerbung':return 'Nächster Schritt: Bewerbung prüfen, offene Fragen notieren und Entscheidung speichern.'
+    if row['status']=='Pausiert':return 'Pausiert: Status bei Bedarf ändern. Bereits vergebene Discord-Rollen bleiben bestehen.'
+    link=row.get('discord_link')
+    if not link:return 'Angenommen: Discord-Mitglied und Streamer-Rolle unten verknüpfen.'
+    state=row.get('role_delivery',{})
+    if state.get('state') in ('sending','uncertain'):return 'Rollenstatus unklar: unten erneut prüfen; vor einer Änderung wird das Mitglied gelesen.'
+    if state.get('state')!='confirmed' or any(state.get(k)!=link.get(k) for k in ('member_id','role_id')):
+        return 'Verknüpft: Discord-Rolle unten prüfen und nach Vorschau zuweisen.'
+    return 'Rolle zuletzt bestätigt. Nächster Schritt: Stream-Benachrichtigungen im verwendeten Bot einrichten und prüfen. Das Control Center aktiviert sie noch nicht.'

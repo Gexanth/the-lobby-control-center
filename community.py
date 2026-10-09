@@ -77,7 +77,17 @@ class CommunityStore:
         return row
     def due_nights(self,guild,now=None):
         now=now or utcnow()
-        return [n for n in self.guild(guild)['nights'] if n['status']=='geplant' and not n['reminded'] and parse_time(n['when'])<=now]
+        return [n for n in self.guild(guild)['nights'] if n['status']=='geplant' and not n['reminded'] and n.get('reminder_minutes',0) is not None and parse_time(n['when'])-timedelta(minutes=n.get('reminder_minutes',0))<=now]
+    def set_night_reminder(self,guild,item,minutes):
+        if minutes is not None and (type(minutes) is not int or minutes not in (0,15,30,60,1440)):
+            raise CommunityError('Ungültige Erinnerungszeit.')
+        row=next((n for n in self.guild(guild)['nights'] if n['id']==item),None)
+        if not row or row.get('status')!='geplant':raise CommunityError('Geplante Lobby Night auswählen.')
+        if row.get('reminder_minutes',0)==minutes:return
+        old=copy.deepcopy(row);row.update(reminder_minutes=minutes,reminded=False)
+        try:self.save()
+        except OSError:row.clear();row.update(old);raise
+
     def mark_reminded(self,guild,item):
         for n in self.guild(guild)['nights']:
             if n['id']==item:n['reminded']=True
@@ -86,7 +96,8 @@ class CommunityStore:
         for n in self.guild(guild)['nights']:
             if n['id']==item:n['status']='abgesagt'
         self.save()
-    def save_creator(self,guild,name,url,status,item=None):
+    def save_creator(self,guild,name,url,status,item=None,notes=None):
+        if notes is not None and (not isinstance(notes,str) or len(notes)>2000):raise CommunityError("Notizen dürfen höchstens 2000 Zeichen enthalten.")
         parsed=urlparse(url)
         if not name.strip() or len(name)>100:raise CommunityError('Creator-Namen mit höchstens 100 Zeichen eingeben.')
         if parsed.scheme!='https' or parsed.hostname not in ('twitch.tv','www.twitch.tv','youtube.com','www.youtube.com') or parsed.username or parsed.password or not parsed.path.strip('/'):
@@ -99,6 +110,8 @@ class CommunityStore:
         if existing:existing.update(name=name.strip(),url=url,status=status);result=existing
         else:
             result={'id':uuid.uuid4().hex,'name':name.strip(),'url':url,'status':status};rows.append(result)
+        if notes is not None:result['notes']=notes.strip()
+        result['updated_at']=utcnow().isoformat()
         g['creators']=rows
         try:self.save()
         except OSError:g['creators']=before;raise
