@@ -12,6 +12,11 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.10 — AI server analysis: local evidence preview, stable per-measurement source
+IDs, data-quality guidance and sanitized latest samples even without history.
+Prompt requests source references; correctness is not yet mechanically checked.
+Next: validate references and preserve provenance during reviewed task creation.
+
 0.4.9 — AI assistant task reliability: retain edited review during save failures;
 retry or cancel without losing the current dialog contents. No new data format.
 

@@ -25,6 +25,20 @@ class CommunityAccessTests(unittest.TestCase):
     def tearDown(self):
         self.w.close();self.app.processEvents()
         self.read_patch.stop();self.login_patch.stop();self.store_patch.stop();self.task_patch.stop();self.tmp.cleanup()
+    def test_analysis_preview_offline_refresh_and_server_isolation(self):
+        from datetime import datetime,timezone
+        c=self.w.community
+        self.assertIn('Server-ID wählen',c.analysis_preview.toPlainText())
+        c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        self.assertIn('Keine Aktivitätsmessungen',c.analysis_preview.toPlainText())
+        c.store.guild(c.guild_id)['activity']['example-channel']={'checked_at':datetime.now(timezone.utc).isoformat(),'messages_24h':7,'participants_24h':2,'coverage':'window_reached'}
+        c.tabs.setCurrentIndex(3)
+        self.assertIn('7 Nachrichten / 2 Beteiligte',c.analysis_preview.toPlainText())
+        self.assertIn('[ACT-',c.analysis_preview.toPlainText())
+        self.assertTrue(c.analysis_preview.isReadOnly())
+        c.offline_server.setCurrentText('930828728966217729');c.open_offline()
+        self.assertNotIn('example-channel',c.analysis_preview.toPlainText())
+        self.assertIn('Keine Aktivitätsmessungen',c.analysis_preview.toPlainText())
     def test_ai_provider_switch_isolates_keys_history_and_pending_plan(self):
         w=self.w
         self.assertEqual(w.active_ai_provider,'anthropic')

@@ -1,3 +1,20 @@
+## 0.4.10 — Datengrundlage vor der KI-Analyse
+
+Roadmap stage: AI server analysis, built on Activity System snapshots. The
+Serveranalyse tab now previews bounded local activity evidence before any API
+call, including timestamps, coverage, quality, withheld invalid/future counts,
+and instructions to refresh weak data. Works offline; refreshes on tab entry,
+server switch and explicit refresh. No new Discord request or permissions.
+Each measurement has a deterministic ACT source identifier shared by preview
+and AI context; current samples are included even without history. Identifiers
+remain stable as samples age. The prompt asks for citations, but model citation
+correctness is not automatically verified. No paid model call was made.
+Raw duplicate activity samples are omitted when canonical evidence exists,
+preventing invalid values bypassing withholding. Other context (server structure,
+planned night fields, creator status counts) is disclosed below the preview.
+No storage migration, dependency, credential or starter change. Next: reviewed
+recommendation provenance and explicit handling of unknown AI source references.
+
 ## 0.4.9 — Aufgabenentwurf bei Speicherfehler behalten
 
 AI assistant follow-through reliability: after a failed task write, reopen the

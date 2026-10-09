@@ -6,6 +6,7 @@ from copy import deepcopy
 from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
 from engagement import engagement_ideas,activity_quality
+from evidence import activity_evidence,evidence_preview
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
 from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields
@@ -116,7 +117,9 @@ class CommunityPage(QWidget):
         self.creator_search.textChanged.connect(self.refresh_creators);self.creator_filter.currentTextChanged.connect(self.refresh_creators)
         x=page('Serveranalyse')
         info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. API-Schlüssel für Claude oder OpenAI unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
-        b=QPushButton('KI-Analyse im Assistenten starten');b.clicked.connect(self.analyze);x.addWidget(b);x.addStretch()
+        self.analysis_preview=QTextEdit();self.analysis_preview.setReadOnly(True);self.analysis_preview.setAccessibleName('Datengrundlage der Serveranalyse');x.addWidget(self.analysis_preview,1)
+        b=QPushButton('Lokale Datenvorschau aktualisieren');b.clicked.connect(self.refresh_analysis_preview);x.addWidget(b)
+        b=QPushButton('KI-Analyse im Assistenten starten');b.clicked.connect(self.analyze);x.addWidget(b)
         e=page('Mitmachimpulse')
         intro=QLabel('Konkrete Gesprächsideen aus der ausgewählten Aktivitätsmessung. Die Begründung zeigt, ob Daten verwendbar sind. Kein API-Schlüssel und keine zusätzlichen Abrufe erforderlich.');intro.setWordWrap(True);e.addWidget(intro)
         self.engagement_basis=QLabel();self.engagement_basis.setWordWrap(True);self.engagement_basis.setTextFormat(Qt.PlainText);e.addWidget(self.engagement_basis)
@@ -128,6 +131,7 @@ class CommunityPage(QWidget):
         hint=QLabel('Die Vorschläge werden nicht automatisch versendet. Kopiere bei Bedarf einen passenden Impuls in Discord. Keine Mitglieder pingen und keine Erfolgsgarantie.');hint.setWordWrap(True);e.addWidget(hint)
         self.engagement_hint=QLabel();self.engagement_hint.setWordWrap(True);e.addWidget(self.engagement_hint)
         self.tabs.currentChanged.connect(lambda index:self.refresh_engagement() if index==4 else None)
+        self.tabs.currentChanged.connect(lambda index:self.refresh_analysis_preview() if index==3 else None)
         self.tabs.setEnabled(True)
         self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.refresh_activity_feedback);self.timer.timeout.connect(self.reminders);self.timer.timeout.connect(self.refresh_poll_readiness);self.timer.timeout.connect(self.dispatch_scheduled_poll);self.timer.start()
         self.refresh_night_readiness()
@@ -169,7 +173,7 @@ class CommunityPage(QWidget):
                 self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.refresh_engagement()
                 self.activity_quality.setText('Noch keine Messung. Für neue Daten diesen Server verbinden.')
                 self._night_signature=None;self._creator_signature=None
-        self.refresh_creators();self.refresh_connection_controls();self.dashboard()
+        self.refresh_creators();self.refresh_connection_controls();self.dashboard();self.refresh_analysis_preview()
     def refresh_connection_controls(self):
         client=self.host.discord_client
         connected=bool(client and client.guild==self.guild_id)
@@ -210,6 +214,7 @@ class CommunityPage(QWidget):
         except (CommunityError,OSError,ValueError) as exc:
             self.status.setText('Speichern fehlgeschlagen: '+str(exc));QMessageBox.warning(self,'Community',str(exc));return False
     def refresh(self):
+        self.refresh_analysis_preview()
         if not self.guild_id:return
         g=self.store.guild(self.guild_id)
         self.refresh_activity()
@@ -607,7 +612,13 @@ class CommunityPage(QWidget):
             self.host.run_discord_job(lambda:assign_checked(client,plan),done,failed)
         self.host.run_discord_job(lambda:checked_plan(client,guild,link),reviewed,self.creator_role_status.setText)
 
+    def refresh_analysis_preview(self):
+        if not self.guild_id:
+            self.analysis_preview.setPlainText('Zuerst eine Server-ID wählen oder Discord verbinden.');return
+        self.analysis_preview.setPlainText(evidence_preview(activity_evidence(self.store.guild(self.guild_id))))
+
     def analyze(self):
+        self.refresh_analysis_preview()
         if not self.host.server_context or self.host.server_context['id']!=self.guild_id:
             self.status.setText('Für die Serveranalyse zuerst die aktuelle Discord-Übersicht laden.');self.open_connection();return
         self.host.stack.setCurrentIndex(1)
