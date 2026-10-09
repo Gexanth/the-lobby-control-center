@@ -24,6 +24,15 @@ actual local failure is not confirmed without their runtime error/status.
 Next: inspect provider-produced analysis with owner credentials and refine
 per-finding task preparation; avoid pretending the assistant has full server data.
 
+Confirmed 2026-10-09 publication: run 37961065111 succeeded; all 98 tests
+executed locally and in CI with Qt, zero skipped. Release v0.4.7 targets
+bdd873e3c3b791698203b31954207baf612e8c94. Assets release.json (285 bytes)
+and source ZIP (108635 bytes) uploaded with SHA256 digests. Screenshot
+The-Lobby-0.4.7-Verlauf.png is the real UI with isolated example snapshots.
+Also fixed 0.4.6 attention-empty label lifetime/layout retention, verified after
+event processing. No actual server write or paid AI request used.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.7
+
 ## 0.4.6 — Dashboard: priorisierte Aufmerksamkeit
 
 Neue Karte direkt unter dem Verbindungsstatus: unklare Abstimmungs-/Stream-
