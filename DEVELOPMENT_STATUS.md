@@ -14,6 +14,13 @@ sind bewusste Einstellungen und werden nicht als Fehler behandelt.
 Nächster Schritt: Dashboard-Verlaufsübersicht mit sichtbarer Datenabdeckung,
 danach die KI-Serveranalyse. Daten, Abhängigkeiten und Starter bleiben kompatibel.
 
+Validation/publication 2026-10-09: all 93 tests passed locally and in GitHub CI
+with Qt, zero skipped. Run 37959865953 succeeded. Release v0.4.6 targets
+2fa5b8c86e964da3e7d52ec0e2f936bfc7659cca; release.json (285 bytes) and ZIP
+(104037 bytes) are uploaded with SHA256 digests. Actual screenshot uses isolated
+local example records, no Discord connection or paid API request. Release:
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.6
+
 ## 0.4.5 — Dashboard: reale Stream-Gesundheit
 
 Die Dashboard-Stufe beginnt mit einer operativen Stream-Übersicht. Für den lokal
