@@ -16,6 +16,16 @@ what is saved; no automatic claim verification or structured recommendation
 extraction. No data migration, credential, dependency or starter change.
 Next: further responsive-layout polish and structured recommendation review.
 
+Publication verified 2026-10-10 (Europe/Berlin): all 110 tests passed locally
+and in CI with Qt, zero skips. Compile and update build passed. Workflow
+38004042725 / job 114068619338 succeeded; latest v0.4.13 targets
+5c535c0767e73d5ff12eaf9467e74ddbf26c6b41. Uploaded release.json (288 bytes)
+and ZIP (118504 bytes), ZIP SHA256
+2d17bcaf4e09a3ad7dd5c61589c4f26e04f7d9fd65ca87eb8ebdbf88fbc263fe.
+Actual offline UI screenshot inspected; no paid AI request or live Discord
+mutation used as a software test.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.13
+
 ## 0.4.12 — Quellenprüfung und nachvollziehbare Aufgaben
 
 Roadmap stage: AI server analysis. Responses now display local ACT reference
