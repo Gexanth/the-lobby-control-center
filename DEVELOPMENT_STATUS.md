@@ -1,3 +1,36 @@
+## 0.4.3 — Optional native stream notifications
+
+Creator Hub now resolves Twitch logins / YouTube handles or channel IDs against
+fixed official API endpoints and stores immutable provider IDs with a Discord
+destination. Default paused; read-only live check; explicit per-creator activation
+preview and acknowledgment of other bots being disabled. Session monitoring starts
+off, credentials remain session-only. Twitch validates tokens on each request cycle.
+YouTube verifies actual live state after search. No role/Everyone mentions.
+
+A separate SQLite journal atomically reserves each guild/provider/channel-identity/
+stream identity before POST. Destination changes and creator removal never erase
+deduplication. Sent, unfinished and uncertain reservations block repeat attempts;
+Discord nonce adds a second short-term guard. Checks are also atomically throttled:
+Twitch 120s, YouTube 1800s, maximum 80 YouTube searches per rolling 24h across the
+installation. One due source checked per minute. Worker threads perform network
+operations; local CommunityStore mutations remain on the UI thread. Worker is now
+registered before busy-control refresh, so stream controls are disabled immediately.
+Errors stop session monitoring. Status/source edits pause authorization. API response
+bodies and credential-bearing URLs are not surfaced in errors.
+
+Validation: 86 tests passed with Qt, zero skipped. Added fake-transport provider
+identity/live/offline/ended checks, budget and restart boundaries, duplicate-source
+and state rollback tests, at-most-once attempts across restart/channel changes/removal,
+uncertain/wrong response/disk failure tests, and actual UI read-only/confirm/pause/
+automatic dispatch flows. No real Discord write or paid API request executed.
+Live Twitch/YouTube/Discord end-to-end operation still requires the owner's session
+credentials and configuration. Existing historical MEE6 announcements were read;
+no current MEE6 setup or disabling is claimed. No new Python dependencies.
+
+Next: Dashboard integration showing actual recorded check/delivery health. Current
+feature is desktop polling, not an always-on hosted service. External bots and other
+independent installations are outside the local deduplication guarantee.
+
 ## 0.4.2 — Lobby Night readiness and Creator review
 
 User requested both roadmap areas together. Lobby Night now shows missing

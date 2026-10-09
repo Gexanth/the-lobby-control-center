@@ -256,3 +256,66 @@ gespeichertem Creator bereit. Notizen bleiben lokal und gehen nicht in die
 KI-Serveranalyse. Angenommen, Rolle zuletzt bestätigt und Stream-Benachrichtigungen
 eingerichtet sind unterschiedliche Zustände: Die App richtet Stream-Benachrichtigungen
 noch nicht ein. Pausieren entfernt keine bestehende Discord-Rolle.
+
+
+## Stream-Benachrichtigungen 0.4.3
+
+Unter **Community → Creator Hub** einen angenommenen Creator auswählen und zum
+Bereich **Stream-Benachrichtigungen** scrollen. Twitch-Kanallinks und YouTube-
+Kanallinks mit `/@handle` oder `/channel/UC…` werden unterstützt; keine Video-Links.
+
+1. Discord mit dem gewünschten Server verbinden. Für späteren Versand braucht der
+   Bot Schreibzugriff sowie Kanal ansehen und Nachrichten senden im Zielkanal.
+2. Für Twitch eine eigene registrierte Twitch-App mit Client-ID und passendem
+   Access-Token verwenden (App- oder User-Access-Token, **kein Stream-Key**).
+   Für YouTube einen API-Schlüssel eines Projekts mit aktivierter YouTube Data API v3
+   verwenden. Schlüssel nur in der App eintragen, nicht in Chat oder Projektdateien.
+   Die App prüft das Twitch-Token vor jedem Quellen-/Live-Abruf; abgelaufene Tokens
+   müssen ersetzt werden. Sie erzeugt oder erneuert keine Tokens automatisch.
+3. Zielkanal wählen und **Gespeicherten Creator-Kanal prüfen und Quelle übernehmen**.
+   Die API bestätigt die Anbieter-Kanal-ID, der Discord-Kanal wird demselben Server
+   zugeordnet. Die gespeicherte Quelle ist zunächst pausiert. Eine Rollenvergabe
+   aktiviert keine Stream-Meldungen.
+4. **Live-Status prüfen (ohne Nachricht)** liest nur den Status. Fehler und letzte
+   Prüfung erscheinen darunter. Diese Prüfung verwendet bereits das Abfragebudget.
+5. MEE6/andere Stream-Bots für diese Quelle separat deaktivieren und dies bestätigen.
+   Die App ändert deren Konfiguration nicht und kann externe Doppelmeldungen nicht
+   verhindern. Bei The Lobby wurden ältere MEE6-Meldungen gefunden; dies bestätigt
+   keine aktuelle MEE6-Konfiguration.
+6. **Meldungen für diesen Creator aktivieren** zeigt Quelle, Ziel und Nachricht zur
+   Bestätigung. Anschließend **Überwachung … starten** einschalten. Jeder erstmals
+   erkannte öffentliche Live-Stream wird ohne Rollen-/Everyone-Ping angekündigt,
+   auch wenn er beim ersten Abruf schon läuft. YouTube-Suchergebnisse werden vor dem
+   Versand noch gegen den tatsächlichen Live-Status des Videos geprüft.
+
+Überwachung startet nach einem App-Neustart nicht selbstständig; Zugangsdaten
+bleiben nur im Arbeitsspeicher. Creator-Freigaben und Quellen sind lokal gespeichert.
+Die laufende App und der verbundene Server sind erforderlich. Twitch frühestens
+alle 2 Minuten je Quelle, YouTube alle 30 Minuten. Es wird maximal eine fällige
+Quelle pro Minute geprüft; bei vielen Quellen verzögert sich die Erkennung.
+YouTube ist zusätzlich auf 80 Live-Suchen in einem rollierenden 24-Stunden-Fenster
+pro Installation begrenzt, gemeinsam für alle Creator und inklusive Probeläufen.
+Andere Apps können dasselbe API-Kontingent verbrauchen. Kurze/private Streams können
+unentdeckt bleiben; kein lückenloser Echtzeitdienst.
+
+Bei API-/Versandfehlern stoppt die Sitzung. Nach Behebung Überwachung erneut starten.
+Creator-Pause und Änderung des gespeicherten Kanallinks deaktivieren dessen
+Freigabe. **Creator-Meldungen pausieren** stoppt diese Quelle; das Sitzungs-Häkchen
+stoppt alle. Bereits laufende Schreibanfragen können noch abgeschlossen werden.
+
+`streams.sqlite3` im lokalen Datenordner protokolliert Abrufe und Versandabsichten.
+Eine atomare Reservierung vor dem POST verhindert erneute Versuche desselben
+Streams auch nach Neustart, Zielkanalwechsel oder Entfernen/Neuanlegen des Creators.
+Unklare Versuche bleiben gesperrt und müssen in Discord geprüft werden; es gibt
+keinen automatischen Retry. Protokoll nicht löschen, um die Sperren zu erhalten.
+Schutz gilt für dieselbe lokale Datenablage, nicht für unabhängige Installationen
+oder andere Bots. Quellen/Schlüssel und Stream-Protokolle gehen nicht in die KI-Analyse.
+
+API-Referenzen:
+- https://dev.twitch.tv/docs/authentication/register-app/
+- https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/
+- https://dev.twitch.tv/docs/authentication/validate-tokens/
+- https://dev.twitch.tv/docs/api/reference/#get-streams
+- https://developers.google.com/youtube/v3/docs/channels/list
+- https://developers.google.com/youtube/v3/docs/search/list
+- https://developers.google.com/youtube/v3/docs/videos/list

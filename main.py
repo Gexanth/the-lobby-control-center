@@ -243,8 +243,8 @@ class MainWindow(QMainWindow):
 
     def run_discord_job(self, action, success, failure):
         if self.discord_worker is not None: return
-        self.set_discord_busy(True)
         worker=DiscordWorker(action); self.discord_worker=worker
+        self.set_discord_busy(True)
         def done():
             result,error=worker.result,worker.error
             self.discord_worker=None

@@ -66,4 +66,7 @@ def creator_next_step(row):
     if state.get('state') in ('sending','uncertain'):return 'Rollenstatus unklar: unten erneut prüfen; vor einer Änderung wird das Mitglied gelesen.'
     if state.get('state')!='confirmed' or any(state.get(k)!=link.get(k) for k in ('member_id','role_id')):
         return 'Verknüpft: Discord-Rolle unten prüfen und nach Vorschau zuweisen.'
-    return 'Rolle zuletzt bestätigt. Nächster Schritt: Stream-Benachrichtigungen im verwendeten Bot einrichten und prüfen. Das Control Center aktiviert sie noch nicht.'
+    cfg=row.get('stream_config',{})
+    if cfg.get('enabled') and cfg.get('creator_url')==row['url']:
+        return 'Rolle zuletzt bestätigt. Stream-Meldungen aktiviert; sie benötigen zusätzlich die gestartete Überwachung und eine verbundene App.'
+    return 'Rolle zuletzt bestätigt. Nächster Schritt: Stream-Quelle unten prüfen, andere Bot-Meldungen ausschalten und Überwachung einrichten.'

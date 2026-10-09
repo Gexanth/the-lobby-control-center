@@ -107,7 +107,10 @@ class CommunityStore:
         existing=next((x for x in rows if x['id']==item),None) if item else next((x for x in rows if x['url']==url),None)
         if item and not existing:raise CommunityError('Creator nicht mehr vorhanden. Auswahl erneut öffnen.')
         if item and any(x['url']==url and x['id']!=item for x in rows):raise CommunityError('Dieser Kanallink gehört bereits zu einem anderen Creator.')
-        if existing:existing.update(name=name.strip(),url=url,status=status);result=existing
+        if existing:
+            if existing.get('stream_config') and (existing['url']!=url or status!='Angenommen'):
+                existing['stream_config']['enabled']=False
+            existing.update(name=name.strip(),url=url,status=status);result=existing
         else:
             result={'id':uuid.uuid4().hex,'name':name.strip(),'url':url,'status':status};rows.append(result)
         if notes is not None:result['notes']=notes.strip()

@@ -3,6 +3,7 @@ from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
 from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
 from copy import deepcopy
+from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
 from engagement import engagement_ideas,activity_quality
 from updates import DATA,read_json,UpdateError
@@ -101,7 +102,7 @@ class CommunityPage(QWidget):
         self.creator_new=QPushButton('Neue Bewerbung beginnen');self.creator_new.clicked.connect(self.new_creator);form.addWidget(self.creator_new)
         self.creator_copy=QPushButton('Gespeicherten Kanallink kopieren');self.creator_copy.clicked.connect(self.copy_creator_link);form.addWidget(self.creator_copy)
         self.creator_remove=QPushButton('Ausgewählten Creator entfernen');self.creator_remove.clicked.connect(self.remove_creator);form.addWidget(self.creator_remove)
-        note=QLabel('Statusänderungen bleiben lokal. Rollen können unten nach Prüfung zugewiesen werden. Automatische Stream-Benachrichtigungen sind hier noch nicht angebunden.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns)
+        note=QLabel('Statusänderungen bleiben lokal. Rollen können unten nach Prüfung zugewiesen werden. Stream-Quellen und die optionale Überwachung lassen sich unten einrichten.');note.setWordWrap(True);note.setObjectName('muted');form.addWidget(note);form.addStretch();columns.addWidget(frame,1);c.addLayout(columns)
         role_frame=QFrame();self.creator_role_frame=role_frame;role_frame.setObjectName('card');role_form=QVBoxLayout(role_frame);role_form.setContentsMargins(18,18,18,18)
         title=QLabel('Discord-Rolle verknüpfen');title.setObjectName('cardTitle');role_form.addWidget(title)
         hint=QLabel('Nur für gespeicherte, angenommene Creator. IDs in Discord mit aktiviertem Entwicklermodus kopieren. Eine Verknüpfung allein vergibt keine Rolle.');hint.setWordWrap(True);role_form.addWidget(hint)
@@ -111,7 +112,7 @@ class CommunityPage(QWidget):
         self.creator_role_id=QLineEdit();self.creator_role_id.setPlaceholderText('17–20-stellige Rollen-ID');role_column.addWidget(self.creator_role_id);row.addLayout(role_column);role_form.addLayout(row)
         row=QHBoxLayout();self.creator_link_save=QPushButton('Verknüpfung lokal speichern');self.creator_link_save.clicked.connect(self.save_creator_link);row.addWidget(self.creator_link_save)
         self.creator_role_apply=QPushButton('Rolle prüfen und zuweisen');self.creator_role_apply.clicked.connect(self.review_creator_role);row.addWidget(self.creator_role_apply);role_form.addLayout(row)
-        self.creator_role_status=QLabel('Keine Verknüpfung ausgewählt.');self.creator_role_status.setWordWrap(True);self.creator_role_status.setTextFormat(Qt.PlainText);role_form.addWidget(self.creator_role_status);c.addWidget(role_frame);c.addStretch()
+        self.creator_role_status=QLabel('Keine Verknüpfung ausgewählt.');self.creator_role_status.setWordWrap(True);self.creator_role_status.setTextFormat(Qt.PlainText);role_form.addWidget(self.creator_role_status);c.addWidget(role_frame);self.stream_panel=StreamPanel(self);c.addWidget(self.stream_panel);c.addStretch()
         self.creator_search.textChanged.connect(self.refresh_creators);self.creator_filter.currentTextChanged.connect(self.refresh_creators)
         x=page('Serveranalyse')
         info=QLabel('Die KI erhält Serverstruktur und die aggregierten Community-Daten. Nachrichtentexte und Creator-Kanallinks werden nicht mitgegeben. API-Schlüssel für Claude oder OpenAI unter Einstellungen erforderlich.');info.setWordWrap(True);x.addWidget(info)
@@ -554,6 +555,7 @@ class CommunityPage(QWidget):
         return next((r for r in self.store.guild(self.guild_id)['creators'] if item and r['id']==item.data(Qt.UserRole)),None) if self.guild_id else None
     def refresh_creator_role_controls(self):
         if not hasattr(self,'creator_role_apply'):return
+        if hasattr(self,'stream_panel'):self.stream_panel.refresh()
         row=self.chosen_creator();idle=self.host.discord_worker is None
         if hasattr(self,'creator_next'):self.creator_next.setText(creator_next_step(row) if row else 'Neue Bewerbung anlegen oder gespeicherten Creator auswählen.')
         self.creator_link_save.setEnabled(bool(row) and idle)

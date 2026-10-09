@@ -394,3 +394,67 @@ class CommunityAccessTests(unittest.TestCase):
         def occupy(dialog):dialog.id_input.setText(K);self.w.discord_worker=object();return QDialog.Accepted
         with patch.object(self.w,'run_discord_job',side_effect=synchronous),patch.object(DeleteConfirmation,'exec',occupy):c.review()
         self.w.discord_worker=None;self.assertFalse(any(m=='DELETE' for m,p in fake.calls))
+
+    def stream_fixture(self):
+        from lobby import Lobby
+        from streams import save_config
+        G='930828728966217728';C='1515362180281663610'
+        source={'provider':'twitch','source_id':'1234','name':'Example','url':'https://twitch.tv/example'}
+        calls=[]
+        def transport(method,path,payload,reason):
+            calls.append((method,path,payload))
+            if method=='GET':return {'id':C,'guild_id':G,'type':0}
+            return {'id':'123456789012345678','channel_id':C}
+        client=Lobby('test',G,writes=True,db=self.root/'audit.db',transport=transport)
+        self.w.discord_client=client
+        self.w.show_discord({'id':G,'name':'Test','channels':[{'id':C,'name':'streams','type':0}],'roles':[]})
+        c=self.w.community;row=c.store.save_creator(G,'Example',source['url'],'Angenommen')
+        c.refresh_creators();c.creators.setCurrentRow(0)
+        return c,c.stream_panel,G,C,source,row,calls
+
+    @staticmethod
+    def stream_sync(work,done,failed):
+        try:result=work()
+        except Exception as exc:failed(str(exc));return
+        done(result)
+
+    def test_stream_source_verification_and_dry_run_never_post(self):
+        c,p,g,ch,source,row,calls=self.stream_fixture()
+        p.client_id.setText('test-client');p.token.setText('secret-test')
+        with patch('stream_ui.StreamAPI.resolve',return_value=source),patch.object(self.w,'run_discord_job',side_effect=self.stream_sync):
+            p.resolve_source()
+        self.assertFalse(c.chosen_creator()['stream_config']['enabled']);self.assertFalse(p.running.isChecked())
+        self.assertNotIn('secret-test',c.store.path.read_text())
+        live=[{'id':'98765','url':source['url'],'title':'Live'}]
+        with patch('stream_ui.StreamAPI.live',return_value=live),patch.object(self.w,'run_discord_job',side_effect=self.stream_sync):p.check_only()
+        self.assertIn('Probelauf',p.status.text());self.assertFalse(any(x[0]=='POST' for x in calls))
+        p.forget_keys();self.assertEqual(p.token.text(),'');self.assertEqual(p.client_id.text(),'')
+
+    def test_stream_activation_requires_conflict_check_and_confirmation(self):
+        from streams import save_config
+        from PySide6.QtWidgets import QMessageBox
+        c,p,g,ch,source,row,calls=self.stream_fixture()
+        save_config(c.store,g,row['id'],source,ch,row['url']);p.refresh()
+        p.enable_source();self.assertFalse(c.chosen_creator()['stream_config']['enabled'])
+        p.conflict.setChecked(True)
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.No):p.enable_source()
+        self.assertFalse(c.chosen_creator()['stream_config']['enabled'])
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.Yes):p.enable_source()
+        self.assertTrue(c.chosen_creator()['stream_config']['enabled']);self.assertFalse(p.running.isChecked())
+        p.pause_source();self.assertFalse(c.chosen_creator()['stream_config']['enabled'])
+        self.assertFalse(any(x[0]=='POST' for x in calls))
+
+    def test_stream_automatic_dispatch_and_pause_during_detection(self):
+        from streams import save_config,set_enabled
+        c,p,g,ch,source,row,calls=self.stream_fixture()
+        save_config(c.store,g,row['id'],source,ch,row['url']);set_enabled(c.store,g,row['id'],True);p.refresh()
+        p.client_id.setText('client');p.token.setText('token');live=[{'id':'98765','url':source['url'],'title':'Live'}]
+        with patch('stream_ui.StreamAPI.live',return_value=live),patch.object(self.w,'run_discord_job',side_effect=self.stream_sync):
+            p.tick();self.assertFalse(any(x[0]=='POST' for x in calls))
+            p.running.setChecked(True);p.tick()
+        self.assertEqual(sum(x[0]=='POST' for x in calls),1)
+        with p.journal().db() as db:db.execute('DELETE FROM checks')
+        def stop_during_detection(cfg):p.running.setChecked(False);return [dict(live[0],id='different')]
+        with patch('stream_ui.StreamAPI.live',side_effect=stop_during_detection),patch.object(self.w,'run_discord_job',side_effect=self.stream_sync):p.tick()
+        self.assertEqual(sum(x[0]=='POST' for x in calls),1)
+        self.assertFalse(p.running.isChecked())
