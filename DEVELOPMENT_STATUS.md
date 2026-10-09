@@ -16,6 +16,15 @@ change; only reviewed task notes persist. No new dependencies or permissions,
 no real Discord mutation and no paid model request. Next: per-recommendation
 review that distinguishes source lookup from whether a claim is supported.
 
+Publication verified 2026-10-09: all 107 tests passed locally and in CI with
+Qt, zero skips; compile and update build passed. Run 37971907001 / job
+113960383996 succeeded. Latest v0.4.12 targets
+ebaa4d364dc00692135b0bb4528a8c2f6bc738b0; release.json (288 bytes) and ZIP
+(115286 bytes) uploaded. ZIP SHA256:
+c8d6467631d46a091038c8a111d49f470e8c6dac07ee2fffe9863842d73e551e.
+Actual task-review screenshot uses explicitly labeled example data.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.12
+
 ## 0.4.11 — Analyseaktionen direkt erreichbar
 
 Visual verification found that the shared Community tab height can push controls
