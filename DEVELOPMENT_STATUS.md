@@ -1,3 +1,11 @@
+## 0.4.4 — Fair polling order
+
+Final multi-creator review found that a fixed list scan could repeatedly select the
+first two Twitch sources at two-minute intervals and starve later creators. Pick
+the never-checked/oldest-checked due source first. Added a UI regression where an
+already-due first creator must yield to a never-checked second creator. 87 tests
+pass with Qt and zero skips. Same opt-in and credential requirements as 0.4.3.
+
 ## 0.4.3 — Optional native stream notifications
 
 Creator Hub now resolves Twitch logins / YouTube handles or channel IDs against

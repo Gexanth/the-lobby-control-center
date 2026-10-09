@@ -458,3 +458,16 @@ class CommunityAccessTests(unittest.TestCase):
         with patch('stream_ui.StreamAPI.live',side_effect=stop_during_detection),patch.object(self.w,'run_discord_job',side_effect=self.stream_sync):p.tick()
         self.assertEqual(sum(x[0]=='POST' for x in calls),1)
         self.assertFalse(p.running.isChecked())
+
+    def test_stream_polling_prioritizes_never_checked_over_due_first_row(self):
+        from streams import save_config,set_enabled
+        c,p,g,ch,source,row,calls=self.stream_fixture()
+        save_config(c.store,g,row['id'],source,ch,row['url']);set_enabled(c.store,g,row['id'],True)
+        older=c.store.guild(g)['creators'][0]['stream_config']
+        p.journal().start_check(g,older,now=1)  # already due, but previously checked
+        new=c.store.save_creator(g,'Second','https://twitch.tv/second','Angenommen')
+        second=dict(source,source_id='5678',name='Second',url=new['url'])
+        save_config(c.store,g,new['id'],second,ch,new['url']);set_enabled(c.store,g,new['id'],True)
+        p.running.setChecked(True)
+        with patch.object(p,'check_source') as check:p.tick()
+        self.assertEqual(check.call_args.args[0]['id'],new['id'])

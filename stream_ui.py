@@ -157,7 +157,11 @@ class StreamPanel(QWidget):
         if not self.running.isChecked() or self.host.discord_worker is not None or not c.guild_id or not client or client.guild != c.guild_id: return
         try:
             journal = self.journal()
-            for row in c.store.guild(c.guild_id)['creators']:
+            candidates=[r for r in c.store.guild(c.guild_id)['creators'] if r.get('stream_config')]
+            # Oldest/never-checked first: fixed list order would starve creator 3+
+            # when two Twitch sources become due again on alternating minutes.
+            candidates.sort(key=lambda r: (journal.status(c.guild_id,r['stream_config']) or (0,))[0])
+            for row in candidates:
                 cfg = row.get('stream_config', {})
                 if row['status'] == 'Angenommen' and cfg.get('enabled') and cfg.get('creator_url') == row['url'] and journal.due(c.guild_id, cfg):
                     self.check_source(row, True); return

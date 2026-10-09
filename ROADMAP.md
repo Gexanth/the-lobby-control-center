@@ -135,3 +135,11 @@ no current MEE6 setup or disabling is claimed. No new Python dependencies.
 Next: Dashboard integration showing actual recorded check/delivery health. Current
 feature is desktop polling, not an always-on hosted service. External bots and other
 independent installations are outside the local deduplication guarantee.
+
+## 0.4.4 — Fair polling order
+
+Final multi-creator review found that a fixed list scan could repeatedly select the
+first two Twitch sources at two-minute intervals and starve later creators. Pick
+the never-checked/oldest-checked due source first. Added a UI regression where an
+already-due first creator must yield to a never-checked second creator. 87 tests
+pass with Qt and zero skips. Same opt-in and credential requirements as 0.4.3.
