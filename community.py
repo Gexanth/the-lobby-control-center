@@ -125,4 +125,6 @@ class CommunityStore:
         except OSError:g['creators']=before;raise
     def analysis_context(self,guild):
         g=self.guild(guild)
-        return {'activity_samples':list(g['activity'].values()),'planned_lobby_nights':g['nights'],'creator_status_counts':{s:sum(x['status']==s for x in g['creators']) for s in ('Bewerbung','Angenommen','Pausiert')},'limits':'Aktivität ist eine begrenzte Kanalstichprobe, keine vollständige Servermessung. Lobby Nights und Creator-Status werden lokal geplant, nicht mit Discord synchronisiert.'}
+        from evidence import activity_evidence
+        return {'activity_samples':list(g['activity'].values()),'activity_evidence':activity_evidence(g),'planned_lobby_nights':g['nights'],'creator_status_counts':{s:sum(x['status']==s for x in g['creators']) for s in ('Bewerbung','Angenommen','Pausiert')},'limits':'Aktivität ist eine begrenzte Kanalstichprobe, keine vollständige Servermessung. Lobby Nights und Creator-Status werden lokal geplant, nicht mit Discord synchronisiert.'}
+

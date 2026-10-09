@@ -12,6 +12,14 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.7: Dashboard history/coverage and unified night/creator status implemented.
+AI server analysis now receives bounded local evidence and rejects action plans
+from the analysis entry. Selected recommendations can become local tasks.
+Assumption: histories are overlapping snapshots, never full-server trends or
+growth. No live provider test or autonomous Discord change. User-reported update
+delay also addressed through 30-minute checks and busy/error retry scheduling.
+Next: evidence quality and per-recommendation workflow refinement.
+
 0.4.6 Dashboard progress: prioritized local attention list with direct Community
 navigation implemented. Ambiguous sends, due/stopped polls, stream errors/stopped
 session, activity quality and open applications use existing stored evidence.

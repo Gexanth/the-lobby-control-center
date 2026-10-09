@@ -131,9 +131,12 @@ class MainWindow(QMainWindow):
         self.ai_save=QPushButton('Nur als Aufgabe speichern');self.ai_save.clicked.connect(self.save_ai_task)
         self.ai_apply=QPushButton('Vorgeschlagene Aktion prüfen');self.ai_apply.setEnabled(False);self.ai_apply.clicked.connect(self.apply_ai_plan)
         self.ai_clear=QPushButton('Gespräch leeren');self.ai_clear.clicked.connect(self.clear_ai_chat)
+        self.ai_save_selection=QPushButton('Markierten Vorschlag als Aufgabe speichern');self.ai_save_selection.setEnabled(False);self.ai_save_selection.clicked.connect(self.save_ai_selection)
+        self.chat.selectionChanged.connect(lambda:self.ai_save_selection.setEnabled(bool(self.chat.textCursor().selectedText().strip()) and self.discord_worker is None))
         p.layout.addWidget(self.chat,1)
         row=QHBoxLayout();row.addWidget(self.ai_input,1);row.addWidget(self.ai_send);p.layout.addLayout(row)
         row=QHBoxLayout();row.addWidget(self.ai_apply);row.addWidget(self.ai_save);row.addWidget(self.ai_clear);p.layout.addLayout(row)
+        p.layout.addWidget(self.ai_save_selection)
         self.ai_status=QLabel('API-Schlüssel unter Einstellungen einrichten. Eine Kanalaktion pro Auftrag.');self.ai_status.setWordWrap(True);p.layout.addWidget(self.ai_status)
         return p
 
@@ -142,12 +145,19 @@ class MainWindow(QMainWindow):
         if text and self.save_task(text):
             self.chat.insertPlainText('System: Aufgabe lokal gespeichert: '+text+'\n\n');self.ai_input.clear()
 
+    def save_ai_selection(self):
+        if self.discord_worker is not None:return
+        text=self.chat.textCursor().selectedText().replace('\u2029','\n').strip()
+        if not text:return
+        if len(text)>4000:self.ai_status.setText('Bitte einen Vorschlag mit höchstens 4000 Zeichen markieren.');return
+        if self.save_task(text):self.ai_status.setText('Markierter Vorschlag als lokale Aufgabe gespeichert. Noch nicht ausgeführt.')
+
     def clear_ai_chat(self):
         if self.discord_worker is not None:return
         self.chat.clear();self.ai_history=[];self.pending_ai=None;self.ai_apply.setEnabled(False)
         self.ai_status.setText('Gespräch geleert. Keine Discord-Aktion ausgeführt.')
 
-    def ask_ai(self):
+    def ask_ai(self,analysis_only=False):
         if self.discord_worker is not None:return
         prompt=self.ai_input.text().strip()
         if not prompt:return
@@ -174,7 +184,7 @@ class MainWindow(QMainWindow):
             self.ai_status.setText('Kanalaktion vorbereitet. Noch nicht ausgeführt.' if result['spec'] else 'Antwort erhalten. Keine Kanalaktion vorbereitet.')
         def failed(message):
             self.chat.insertPlainText('System: '+message+'\n\n');self.ai_status.setText('KI-Anfrage fehlgeschlagen. Keine Discord-Aktion ausgeführt.')
-        self.run_discord_job(lambda:request_plan(key,model,prompt,context,history,provider=provider),answered,failed)
+        self.run_discord_job(lambda:request_plan(key,model,prompt,context,history,provider=provider,analysis_only=analysis_only),answered,failed)
 
     def apply_ai_plan(self):
         if self.discord_worker is not None or not self.pending_ai:return
@@ -235,11 +245,12 @@ class MainWindow(QMainWindow):
             if busy:self.community.scan.setEnabled(False);self.community.poll_publish.setEnabled(False);self.community.poll_results.setEnabled(False);self.community.poll_schedule.setEnabled(False);self.community.poll_unschedule.setEnabled(False);self.community.creator_role_apply.setEnabled(False);self.community.creator_link_save.setEnabled(False)
             if busy:
                 for widget in (self.community.creator_save,self.community.creator_remove,self.community.creators,self.community.creator_new,self.community.creator_search,self.community.creator_filter,self.community.creator_member_id,self.community.creator_role_id):widget.setEnabled(False)
-        for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.ai_provider,self.forget_key_button):
+        for widget in (self.remember_login,self.forget_login_button,self.connect_button,self.disconnect_button,self.bot_token,self.guild_id,self.channel_actions,self.ai_send,self.ai_input,self.ai_save,self.ai_save_selection,self.ai_clear,self.ai_apply,self.api_key_input,self.ai_model,self.ai_provider,self.forget_key_button):
             widget.setEnabled(not busy)
         if hasattr(self,'updates'):
             self.updates.setEnabled(not busy)
         if not busy:self.ai_apply.setEnabled(self.pending_ai is not None)
+        if not busy:self.ai_save_selection.setEnabled(bool(self.chat.textCursor().selectedText().strip()))
 
     def run_discord_job(self, action, success, failure):
         if self.discord_worker is not None: return
@@ -535,3 +546,4 @@ if __name__=='__main__':
     if marker:
         QTimer.singleShot(500,lambda:Path(marker).write_text(VERSION,encoding='utf-8'))
     sys.exit(app.exec())
+

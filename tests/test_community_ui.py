@@ -301,11 +301,26 @@ class CommunityAccessTests(unittest.TestCase):
         c=self.w.community;g='930828728966217728';c.offline_server.setCurrentText(g);c.open_offline()
         c.store.save_creator(g,'<b>Private creator</b>','https://twitch.tv/example','Bewerbung');c.dashboard()
         d=self.w.dashboard_page
-        row=d.attention_body.itemAt(1).widget();self.assertIn('1 offene Creator-Bewerbungen',row.findChild(QLabel).text())
+        row=d.attention_body.itemAt(2).widget();self.assertIn('1 offene Creator-Bewerbungen',row.findChild(QLabel).text())
         self.assertNotIn('Private creator',row.findChild(QLabel).text())
-        c.dashboard();self.assertIs(d.attention_body.itemAt(1).widget(),row)
+        c.dashboard();self.assertIs(d.attention_body.itemAt(2).widget(),row)
         row.findChild(QPushButton).click();self.assertEqual(self.w.stack.currentIndex(),7);self.assertEqual(c.tabs.currentIndex(),2)
-        d.refresh_streams(None,c.store);self.assertEqual(d.attention_body.count(),1);self.assertIn('Wähle',d.attention_empty.text())
+        d.refresh_streams(None,c.store);self.assertEqual(d.attention_body.count(),2);self.assertIn('Wähle',d.attention_empty.text())
+        self.app.processEvents();d.refresh_attention([]);self.assertIn('Keine offenen Hinweise',d.attention_empty.text())
+
+    def test_dashboard_history_is_bounded_and_selection_becomes_task(self):
+        from datetime import datetime,timezone
+        from PySide6.QtGui import QTextCursor
+        c=self.w.community;g='930828728966217728';c.offline_server.setCurrentText(g);c.open_offline()
+        p={'checked_at':datetime.now(timezone.utc).isoformat(),'messages_24h':7,'participants_24h':3,'sample_size':7,'coverage':'history_end'}
+        c.store.guild(g)['activity']={'123456789012345678':p};c.store.guild(g)['activity_history']={'123456789012345678':[p]*15};c.dashboard()
+        d=self.w.dashboard_page;self.assertEqual(d.history_table.rowCount(),12);self.assertIn('nicht summieren',d.history_note.text())
+        self.assertEqual(d.history_table.item(0,1).text(),'7')
+        c.dashboard();self.assertEqual(d.history_channel.count(),1)
+        self.w.chat.setPlainText('Eine gemeinsame Runde vorschlagen');cursor=self.w.chat.textCursor();cursor.select(QTextCursor.Document);self.w.chat.setTextCursor(cursor)
+        self.w.ai_save_selection.click();self.assertEqual(self.w.store.items[-1]['text'],'Eine gemeinsame Runde vorschlagen')
+        self.assertIn('Noch nicht ausgeführt',self.w.ai_status.text())
+        d.refresh_streams(None,c.store);self.assertEqual(d.history_table.rowCount(),0)
 
     def test_creator_edit_filter_and_keyboard_selection(self):
         c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()

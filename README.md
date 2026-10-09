@@ -10,7 +10,8 @@ Keep the extracted folder as your permanent launcher folder.
 ## Automatic updates
 
 From 0.1.6, fresh installations automatically check the official GitHub release
-at startup and every six hours while running. Existing update preferences are
+at startup and every 30 minutes while running (from 0.4.7). Busy checks retry within
+a minute; failed checks retry after five minutes. Existing update preferences are
 preserved. In Updates, enable automatic downloads and use:
 
 https://github.com/Gexanth/the-lobby-control-center/releases/latest/download/release.json
@@ -321,6 +322,14 @@ API-Referenzen:
 - https://developers.google.com/youtube/v3/docs/videos/list
 
 ## Dashboard stream health (0.4.5)
+
+0.4.7 adds selectable local activity history with the latest 12 capture points,
+freshness/coverage and no summed overlapping 24h totals. Night previews include
+poll state; creator status counts are shown together. AI analysis receives this
+bounded evidence and is restricted to answers. Mark a useful recommendation in
+the assistant and choose "Markierten Vorschlag als Aufgabe speichern" to retain
+it locally. No action is executed by saving a task. API calls require your key;
+actual model reasoning quality is not guaranteed by offline transport tests.
 
 From 0.4.6, "Das braucht deine Aufmerksamkeit" prioritizes ambiguous deliveries,
 due/stopped poll plans, stream check problems, stopped monitoring, unreliable

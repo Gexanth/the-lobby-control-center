@@ -1,3 +1,29 @@
+## 0.4.7 — Verlauf, belegte Analyse und Update-Zuverlässigkeit
+
+Dashboard stage: selectable local channel history, latest 12 overlapping 24h
+snapshots, capture time, counts, freshness and coverage. Invalid/future values
+are withheld. No summed totals or invented trends. Upcoming nights now include
+poll delivery state; community summary breaks down creator applications/status.
+
+AI analysis stage: bounded whitelisted history evidence (50 channels / 12 points)
+with generated time, quality and limitations. No message content, member identity,
+creator notes, stream credentials or journal sent. Analysis entry explicitly asks
+for sourced observations, gaps and justified next steps; fewer than three findings
+are acceptable when evidence is absent. Both providers reject channel plans in
+analysis-only mode. Real paid-provider quality remains unverified; no paid calls.
+Assistant usability: explicitly selected response text can be saved as a local
+task (4000-character limit), without executing it. Existing reviewed actions remain.
+
+Owner-reported auto-download investigation found six-hour checks and a busy
+worker skipping a due check until the next interval. Checks now run every 30 min;
+busy checks retry each minute, failures after 5 min. Update page shows next check
+and saved opt-out/launcher requirements. Startup activation/SHA256/dependencies,
+credentials and saved tasks remain compatible. This fixes code paths; user's
+actual local failure is not confirmed without their runtime error/status.
+
+Next: inspect provider-produced analysis with owner credentials and refine
+per-finding task preparation; avoid pretending the assistant has full server data.
+
 ## 0.4.6 — Dashboard: priorisierte Aufmerksamkeit
 
 Neue Karte direkt unter dem Verbindungsstatus: unklare Abstimmungs-/Stream-

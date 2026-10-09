@@ -1,4 +1,5 @@
-import os,sys
+import os,sys,time
+from datetime import datetime,timedelta
 from pathlib import Path
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QLineEdit,QCheckBox,QPushButton,QFileDialog
@@ -20,6 +21,7 @@ class UpdatePage(QWidget):
         self.check=QPushButton('Update prüfen und herunterladen');self.check.clicked.connect(self.check_now);layout.addWidget(self.check)
         self.local=QPushButton('Heruntergeladene Update-ZIP auswählen');self.local.clicked.connect(self.import_zip);layout.addWidget(self.local)
         self.status=QLabel('');self.status.setWordWrap(True);self.status.setTextFormat(Qt.PlainText);layout.addWidget(self.status)
+        self.auto_status=QLabel();self.auto_status.setWordWrap(True);self.auto_status.setTextFormat(Qt.PlainText);layout.addWidget(self.auto_status)
         recovery=QLabel('Wiederherstellung: App schließen und restore_previous.bat aus dem ursprünglichen Programmordner öffnen. Die letzte Programmversion wird wieder aktiviert; Aufgabendaten werden nicht zurückgesetzt.');recovery.setWordWrap(True);layout.addWidget(recovery);layout.addStretch()
         try:
             self.config=read_json(DATA/'update_config.json',{'url':DEFAULT_UPDATE_URL,'auto':True})
@@ -31,7 +33,9 @@ class UpdatePage(QWidget):
         if not self.supported:
             self.status.setText('Bitte diese Quellcode-Version über start.bat starten. EXE-Updates werden noch nicht unterstützt.')
             for control in (self.save,self.check,self.local):control.setEnabled(False)
-        self.timer=QTimer(self);self.timer.setInterval(6*60*60*1000);self.timer.timeout.connect(self.auto_check);self.timer.start()
+        self.next_check=0
+        self.timer=QTimer(self);self.timer.setInterval(60000);self.timer.timeout.connect(self.auto_check);self.timer.start()
+        self.show_auto_status()
         QTimer.singleShot(5000,self.auto_check)
 
     def save_config(self):
@@ -41,11 +45,24 @@ class UpdatePage(QWidget):
             if self.auto.isChecked() and not url:raise UpdateError('Für automatische Updates fehlt noch die Downloadquelle.')
             self.config={'url':url,'auto':self.auto.isChecked()}
             atomic_json(DATA/'update_config.json',self.config)
-            self.status.setText('Gespeichert. Automatische Prüfung beim Start und alle sechs Stunden.' if self.config['auto'] else 'Gespeichert. Automatische Updates deaktiviert.')
+            self.next_check=0;self.show_auto_status()
+            self.status.setText('Gespeichert. Automatische Prüfung beim Start und alle 30 Minuten.' if self.config['auto'] else 'Gespeichert. Automatische Updates deaktiviert.')
         except (UpdateError,OSError) as exc:self.status.setText(str(exc))
 
     def auto_check(self):
-        if self.supported and self.config.get('auto') and self.config.get('url') and self.host.discord_worker is None:self.run_check(self.config['url'])
+        if not self.supported or not self.config.get('auto') or not self.config.get('url'):
+            self.show_auto_status();return
+        if time.monotonic()<self.next_check:return
+        if self.host.discord_worker is not None:
+            self.auto_status.setText('Automatische Prüfung wartet auf den laufenden Vorgang. Erneuter Versuch innerhalb einer Minute.');return
+        self.run_check(self.config['url'])
+
+    def show_auto_status(self):
+        if not self.supported:self.auto_status.setText('Automatik benötigt den Start über start.bat.');return
+        if not self.config.get('auto'):self.auto_status.setText('Automatik ist in den gespeicherten Einstellungen deaktiviert.');return
+        if not self.config.get('url'):self.auto_status.setText('Gespeicherte Update-Quelle fehlt.');return
+        seconds=max(0,self.next_check-time.monotonic())
+        self.auto_status.setText('Nächste automatische Prüfung: '+((datetime.now()+timedelta(seconds=seconds)).strftime('%H:%M') if seconds else 'innerhalb einer Minute')+'. Aktivierung bleibt beim nächsten start.bat-Start.')
 
     def check_now(self):
         if self.supported:self.run_check(self.url.text().strip())
@@ -55,7 +72,13 @@ class UpdatePage(QWidget):
         try:https(url)
         except UpdateError as exc:self.status.setText(str(exc));return
         self.status.setText('Update wird geprüft und gegebenenfalls heruntergeladen …')
-        self.host.run_discord_job(lambda:check_and_stage(url,VERSION),self.status.setText,self.status.setText)
+        self.next_check=time.monotonic()+1800
+        def done(message):
+            self.status.setText(message);self.next_check=time.monotonic()+1800;self.show_auto_status()
+        def failed(message):
+            self.status.setText(message);self.next_check=time.monotonic()+300;self.show_auto_status()
+        self.show_auto_status()
+        self.host.run_discord_job(lambda:check_and_stage(url,VERSION),done,failed)
 
     def import_zip(self):
         if not self.supported or self.host.discord_worker is not None:return

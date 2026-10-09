@@ -2,10 +2,12 @@
 from datetime import datetime,timezone
 import sqlite3
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QSizePolicy
+from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QSizePolicy,QComboBox,QTableWidget,QTableWidgetItem,QHeaderView,QAbstractItemView
 from community import parse_time
 from streams import stream_overview
 from attention import attention_items
+from evidence import activity_evidence,QUALITY
+from polls import schedule_state
 
 def label(text,name=None):
     widget=QLabel(text);widget.setTextFormat(Qt.PlainText);widget.setWordWrap(True)
@@ -52,6 +54,15 @@ class DashboardPage(QWidget):
             button=QPushButton(action);button.clicked.connect(lambda _,t=tab:host.open_page(7,t));body.addWidget(button);row.addWidget(frame,1)
         layout.addLayout(row)
 
+        frame,body=panel('Aktivitätsverlauf')
+        self.history_channel=QComboBox();self.history_channel.setPlaceholderText('Noch keine Kanalstichproben');body.addWidget(self.history_channel)
+        self.history_note=label('Wähle unter Community einen Server.','muted');body.addWidget(self.history_note)
+        self.history_table=QTableWidget(0,4);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten / 24h','Personen / 24h','Datenqualität'])
+        self.history_table.setEditTriggers(QAbstractItemView.NoEditTriggers);self.history_table.verticalHeader().hide()
+        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.history_table.setMinimumHeight(180)
+        body.addWidget(self.history_table);self.history_channel.currentIndexChanged.connect(self.show_history)
+        self.history_data={};self.history_signature=None;layout.addWidget(frame)
+
         row=QHBoxLayout();row.setSpacing(14)
         frame,body=panel('Anstehende Lobby Nights');self.nights=label('Wähle unter Community einen Server, um lokale Termine zu sehen.','muted')
         body.addWidget(self.nights,1);row.addWidget(frame,1)
@@ -78,9 +89,11 @@ class DashboardPage(QWidget):
         if not guild:self.nights.setText('Wähle unter Community einen Server, um lokale Termine zu sehen.');return
         now=datetime.now(timezone.utc)
         upcoming=sorted((n for n in store.guild(guild)['nights'] if n['status']=='geplant' and parse_time(n['when'])>now),key=lambda n:parse_time(n['when']))
-        self.nights.setText('\n\n'.join(parse_time(n['when']).astimezone().strftime('%d.%m. · %H:%M')+'  '+n['title'][:90] for n in upcoming[:3]) if upcoming else 'Keine anstehende Lobby Night. Plane einen Termin im Community-Bereich.')
+        states={'scheduled':'Versand geplant','due':'Versand fällig','sent':'Abstimmung veröffentlicht','sending':'Versand unklar','uncertain':'Versand unklar','ready':'Entwurf'}
+        self.nights.setText('\n\n'.join(parse_time(n['when']).astimezone().strftime('%d.%m. · %H:%M')+'  '+n['title'][:90]+'\n'+states.get(schedule_state(n,now) or n.get('poll_delivery',{}).get('state'),'Lokaler Entwurf') for n in upcoming[:3]) if upcoming else 'Keine anstehende Lobby Night. Plane einen Termin im Community-Bereich.')
 
     def refresh_streams(self,guild,store,monitoring=False):
+        self.refresh_history(guild,store)
         if not guild:
             self.stream_health.setText('Wähle unter Community einen Server, um lokale Stream-Zustände zu sehen.')
             self.refresh_attention(None)
@@ -98,12 +111,35 @@ class DashboardPage(QWidget):
             self.stream_health.setText('Lokales Stream-Protokoll ist nicht lesbar. Creator Hub öffnen und Überwachung gestoppt lassen.')
             self.refresh_attention(attention_items(store.guild(guild),None,monitoring))
 
+    def refresh_history(self,guild,store):
+        data=activity_evidence(store.guild(guild)) if guild else {'channels':[]}
+        names={c['id']:c.get('name',c['id']) for c in (self.host.server_context or {}).get('channels',[]) if (self.host.server_context or {}).get('id')==guild}
+        # Age classification can change on the existing minute refresh.
+        signature=(guild,repr(data['channels']),repr(names))
+        if signature==self.history_signature:return
+        selected=self.history_channel.currentData() if self.history_signature and self.history_signature[0]==guild else None
+        self.history_signature=signature;self.history_data={x['channel_id']:x for x in data['channels']}
+        self.history_channel.blockSignals(True);self.history_channel.clear()
+        for cid,row in self.history_data.items():self.history_channel.addItem(names.get(cid,cid)+' · '+QUALITY[row['quality']],cid)
+        self.history_channel.setCurrentIndex(max(0,self.history_channel.findData(selected)));self.history_channel.blockSignals(False);self.show_history()
+
+    def show_history(self):
+        row=self.history_data.get(self.history_channel.currentData());points=row['recent_points'] if row else []
+        self.history_note.setText((f"{row['history_points']} gespeicherte Punkte · letzte {len(points)} sichtbar. " if row else 'Noch keine gespeicherten Verlaufspunkte. ')+'Überlappende 24h-Stichproben; nicht summieren. Begrenzte Werte sind keine vollständige Aktivitätsmessung.')
+        self.history_table.setRowCount(len(points))
+        for index,point in enumerate(reversed(points)):
+            try:when=parse_time(point['checked_at']).astimezone().strftime('%d.%m. %H:%M')
+            except (ValueError,TypeError):when='Ungültiger Zeitpunkt'
+            coverage={'window_reached':'24h erreicht','history_end':'Verlaufende','capped':'Abrufgrenze','empty_or_no_history_access':'Zugriff unbestätigt'}.get(point['coverage'],'Abdeckung unbekannt')
+            values=[when,str(point['messages_24h']) if point['messages_24h'] is not None else '—',str(point['participants_24h']) if point['participants_24h'] is not None else '—',QUALITY[point['quality']]+' · '+coverage]
+            for col,value in enumerate(values):self.history_table.setItem(index,col,QTableWidgetItem(value))
+
     def refresh_attention(self,items):
         signature=repr(items)
         if signature==self.attention_signature:return
         self.attention_signature=signature
-        while self.attention_body.count()>1:
-            item=self.attention_body.takeAt(1)
+        while self.attention_body.count()>2:
+            item=self.attention_body.takeAt(2)
             if item.widget():item.widget().deleteLater()
         self.attention_empty.setText('Wähle unter Community einen Server für deine lokalen Hinweise.' if items is None else 'Keine offenen Hinweise in den gespeicherten Daten. Das bestätigt keine vollständige Serverprüfung.')
         self.attention_empty.setVisible(not items)

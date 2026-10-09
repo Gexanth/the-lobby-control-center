@@ -298,7 +298,8 @@ class CommunityPage(QWidget):
         attention=states.count('expired')+states.count('cancelled');unclear=states.count('uncertain')+states.count('sending')
         if attention:delivery+=f' · {attention} gestoppte/abgelaufene Termine'
         if unclear:delivery+=f' · {unclear} unklare Versandversuche: in Discord prüfen'
-        self.host.community_summary.setText(f"Community: {len(g['activity'])} Kanalstichproben · {sum(n['status']=='geplant' for n in g['nights'])} geplante Lobby Nights · {len(g['creators'])} Creator\n{delivery}\nStichproben und Planung sind lokal; keine vollständige Serveraktivitätsmessung.")
+        creators=' · '.join(f"{sum(c['status']==s for c in g['creators'])} {s}" for s in ('Bewerbung','Angenommen','Pausiert'))
+        self.host.community_summary.setText(f"Community: {len(g['activity'])} Kanalstichproben · {sum(n['status']=='geplant' for n in g['nights'])} geplante Lobby Nights · {len(g['creators'])} Creator\n{delivery}\nCreator: {creators}\nStichproben und Planung sind lokal; keine vollständige Serveraktivitätsmessung.")
     def sample(self):
         client=self.host.discord_client;channel=self.channel.currentData();guild=self.guild_id
         if not client or client.guild!=guild or not channel:
@@ -610,6 +611,6 @@ class CommunityPage(QWidget):
         if not self.host.server_context or self.host.server_context['id']!=self.guild_id:
             self.status.setText('Für die Serveranalyse zuerst die aktuelle Discord-Übersicht laden.');self.open_connection();return
         self.host.stack.setCurrentIndex(1)
-        self.host.ai_input.setText('Analysiere die Serverstruktur und die verfügbaren Community-Daten. Benenne Datenlücken, drei belegte Erkenntnisse und drei priorisierte Mitmachideen für Activity System, Lobby Night und Creator Hub. Keine Kanalaktion planen; nur antworten. Keine vollständige Aktivitätsmessung behaupten.')
-        self.host.ask_ai()
+        self.host.ai_input.setText('Analysiere die Serverstruktur und die verfügbaren Community-Daten. Trenne Datenlücken, bis zu drei belegte Beobachtungen mit Kanal/Erfassungszeitpunkt und bis zu drei priorisierte Empfehlungen mit Begründung und nächstem Schritt für Activity System, Lobby Night und Creator Hub. Bei fehlenden Daten keine Erkenntnisse erfinden. Überlappende 24h-Stichproben nicht summieren. Nur antworten, keine Kanalaktion planen.')
+        self.host.ask_ai(analysis_only=True)
 
