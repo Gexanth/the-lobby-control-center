@@ -6,6 +6,16 @@ bound its height to 420 pixels; long evidence remains internally scrollable.
 The current analysis actions are now reachable without scrolling at 1280x900.
 This is an AI server analysis usability follow-up to 0.4.10.
 
+Publication verified 2026-10-09: v0.4.10 run 37969916329 succeeded. Cumulative
+v0.4.11 passed all 104 tests locally and in CI with Qt, zero skips (run
+37970094314, job 113954219534). Latest release targets
+3f1019aa6a0864ec1a25d5bfb1bb455821b88905. Uploaded assets: release.json
+(288 bytes), ZIP (113152 bytes), ZIP SHA256
+d323235786c79a0b8c8864670f06f81d572ec259f67623ae9cd90f1526a7dacc.
+Local compile and update-package build also passed. Actual UI screenshot uses
+isolated, explicitly labeled test data. No real Discord mutation or paid AI call.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.11
+
 ## 0.4.10 — Datengrundlage vor der KI-Analyse
 
 Roadmap stage: AI server analysis, built on Activity System snapshots. The
