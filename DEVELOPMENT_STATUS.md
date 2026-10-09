@@ -16,6 +16,15 @@ Tests, darunter Server-Isolation, fällige/ungeprüfte/fehlerhafte Abrufe, unkla
 Versandreservierungen, read-only Verhalten und die tatsächliche Dashboard-Anzeige.
 Keine echte Discord-Änderung und kein bezahlter API-Aufruf.
 
+Bestätigte Veröffentlichung am 09.10.2026: GitHub-Actions-Lauf 37939527364
+endete erfolgreich und führte alle 89 Tests mit Qt ohne Überspringen aus. Release
+v0.4.5 zeigt auf Commit ff71ee3b950449b55ff639958d45d5aa3a4dcec9;
+`release.json` (285 Bytes) und das Quell-Update-ZIP (101.211 Bytes) sind mit
+GitHub-SHA256-Digests hochgeladen. Release:
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.5 . Die
+echte Vorschau `The-Lobby-0.4.5-Dashboard.png` verwendet ausschließlich isolierte
+lokale Beispieldaten und keine Discord-Verbindung.
+
 Nächster Dashboard-Schritt: die vorhandenen Activity-, Lobby-Night- und Creator-
 Zustände zu einer klaren Aufmerksamkeitsliste zusammenführen. Erst danach folgt
 die KI-Serveranalyse auf diesen belegten lokalen Grundlagen.
