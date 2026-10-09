@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
 
     def assistant(self):
         self.ai_source_records=[]
+        self.last_ai_task_id=None
         p=Page('Assistent','KI-Aufträge besprechen und Kanalaktionen vorbereiten. Die Ausführung erfolgt nach einer konkreten Vorschau.')
         self.chat=QTextEdit(); self.chat.setReadOnly(True)
         self.chat.setPlaceholderText('Beispiel: Erstelle einen Textkanal namens test in der Kategorie EVENTS.')
@@ -140,6 +141,7 @@ class MainWindow(QMainWindow):
         row=QHBoxLayout();row.addWidget(self.ai_input,1);row.addWidget(self.ai_send);p.layout.addLayout(row)
         row=QHBoxLayout();row.addWidget(self.ai_apply);row.addWidget(self.ai_save);row.addWidget(self.ai_clear);p.layout.addLayout(row)
         p.layout.addWidget(self.ai_save_selection)
+        self.ai_open_task=QPushButton('Zuletzt übernommene Aufgabe öffnen');self.ai_open_task.setEnabled(False);self.ai_open_task.clicked.connect(self.open_last_ai_task);p.layout.addWidget(self.ai_open_task)
         self.ai_status=QLabel('API-Schlüssel unter Einstellungen einrichten. Eine Kanalaktion pro Auftrag.');self.ai_status.setWordWrap(True);p.layout.addWidget(self.ai_status)
         return p
 
@@ -164,6 +166,7 @@ class MainWindow(QMainWindow):
         for record in self.ai_source_records:
             if record['start']<=cursor.selectionStart() and cursor.selectionEnd()<=record['end']:
                 provenance='\n\nHerkunft: KI-Vorschlag · Server '+str(record['guild'])+' · Anfrage '+record['time']+'\n'+reference_report(text,record['sources'])
+                dialog.set_evidence(provenance.strip())
                 dialog.notes.setPlainText(text+provenance)
                 break
         while dialog.exec():
@@ -172,9 +175,21 @@ class MainWindow(QMainWindow):
             title=dialog.title.text().strip();notes=dialog.notes.toPlainText().strip();status=dialog.status.currentText()
             if any(t['text']==title and t.get('notes','')==notes and t['status']!='Erledigt' for t in self.store.items):
                 self.ai_status.setText('Diese offene Aufgabe ist bereits gespeichert. Unter Aufgaben findest du sie wieder.');return
-            if self.mutate(lambda:self.store.add(title,notes,status)):
+            created=[]
+            if self.mutate(lambda:created.append(self.store.add(title,notes,status))):
+                self.last_ai_task_id=created[0]['id'];self.ai_open_task.setEnabled(True)
                 self.ai_status.setText('Vorbereitete Aufgabe lokal gespeichert. Noch nicht ausgeführt.');return
             dialog.feedback.setText('Speichern fehlgeschlagen. Dein Entwurf ist erhalten; erneut speichern oder abbrechen.')
+
+    def open_last_ai_task(self):
+        if self.discord_worker is not None:return
+        if not any(t['id']==self.last_ai_task_id for t in self.store.items):
+            self.ai_open_task.setEnabled(False);self.ai_status.setText('Diese Aufgabe ist nicht mehr vorhanden.');return
+        self.filter.setCurrentText('Alle');self.refresh_tasks()
+        for i in range(self.task_list.count()):
+            if self.task_list.item(i).data(Qt.UserRole)==self.last_ai_task_id:
+                self.task_list.setCurrentRow(i);break
+        self.stack.setCurrentIndex(3)
 
     def clear_ai_chat(self):
         if self.discord_worker is not None:return

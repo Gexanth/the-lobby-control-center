@@ -12,6 +12,12 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+Owner priority override for this iteration: 3 → 5 → 4 → 2 → 1
+(Community UI, Lobby Night, Activity, tasks, recommendation review).
+0.4.13 implements a small step in each: adaptive tab height; separated night
+planning/delivery; two-snapshot comparison and gaps; direct reviewed-task access;
+dedicated evidence review. Existing module roadmap remains the foundation.
+
 0.4.12 — AI server analysis: per-response ACT lookup with unknown-source warnings;
 reviewed tasks retain editable source snapshots. Chat appends preserve old text
 and source positions even while text is selected. No factual-validation claim.

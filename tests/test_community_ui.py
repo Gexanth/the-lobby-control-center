@@ -77,6 +77,32 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertEqual(w.api_key_input.text(),'')
         self.assertEqual(w.ai_keys['anthropic'],'claude-test-key')
 
+    def test_adaptive_tabs_night_steps_and_review_evidence(self):
+        from PySide6.QtWidgets import QSizePolicy
+        from task_review import TaskReview
+        c=self.w.community;c.tabs.setCurrentIndex(1)
+        self.assertEqual(c.tabs.widget(2).sizePolicy().verticalPolicy(),QSizePolicy.Ignored)
+        self.assertEqual(c.tabs.widget(1).sizePolicy().verticalPolicy(),QSizePolicy.Preferred)
+        c.tabs.setCurrentIndex(2);tall=c.tabs.sizeHint().height();c.tabs.setCurrentIndex(3)
+        self.assertLess(c.tabs.sizeHint().height(),tall);c.tabs.setCurrentIndex(1)
+        self.assertEqual(c.night_steps.count(),2)
+        c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        c.night_title.setText('Testplan');c.options.setPlainText('Spiel A\nSpiel B');c.save_night()
+        c.night_steps.setCurrentIndex(1);self.assertIn('Testplan',c.night_delivery_selection.text())
+        self.assertIn('verbinden',c.poll_readiness.text())
+        c.night_steps.setCurrentIndex(0);self.assertEqual(c.night_title.text(),'Testplan')
+        d=TaskReview(self.w,'Idee');d.set_evidence('Bekannte Quelle');self.assertTrue(d.evidence.isReadOnly())
+        self.assertIn('Bekannte Quelle',d.evidence.toPlainText());self.assertEqual(d.notes.toPlainText(),'Idee');d.close()
+
+    def test_open_last_ai_task_with_filter_and_deleted_task(self):
+        from PySide6.QtGui import QTextCursor
+        w=self.w;w.chat.setPlainText('Idee');cursor=w.chat.textCursor();cursor.select(QTextCursor.Document);w.chat.setTextCursor(cursor)
+        with patch('main.TaskReview.exec',return_value=1):w.save_ai_selection()
+        task_id=w.last_ai_task_id;self.assertTrue(w.ai_open_task.isEnabled())
+        w.filter.setCurrentText('Erledigt');w.open_last_ai_task()
+        self.assertEqual(w.selected_id(),task_id);self.assertEqual(w.stack.currentIndex(),3)
+        w.store.delete(task_id);w.open_last_ai_task();self.assertFalse(w.ai_open_task.isEnabled())
+
     def test_answer_sources_and_task_provenance_use_original_snapshot(self):
         from datetime import datetime,timezone
         from PySide6.QtGui import QTextCursor

@@ -1,3 +1,21 @@
+## 0.4.13 — Community-Abläufe und Empfehlungen prüfen
+
+Owner-directed iteration order on 2026-10-09: UI (3), Lobby Night (5), Activity
+(4), tasks (2), recommendation review (1). This refines the existing modules.
+Community tabs ignore inactive pages when sizing. Lobby Night is split into
+Plan & Erinnerung and Abstimmung & Versand; selection survives switching and
+the delivery page identifies the saved plan. Existing preview, scheduling and
+reminder safeguards remain; no live Discord event created.
+Activity shows two distinct recorded snapshots, quality and coverage gaps;
+invalid/future counts withheld. No summed windows or invented growth metric.
+Assistant offers a direct link to the last successfully reviewed task, including
+when a status filter would hide it; deleted tasks produce an explicit message.
+Task review separates editable task details from a read-only Belege & Grenzen
+tab with source context and manual review questions. Existing notes determine
+what is saved; no automatic claim verification or structured recommendation
+extraction. No data migration, credential, dependency or starter change.
+Next: further responsive-layout polish and structured recommendation review.
+
 ## 0.4.12 — Quellenprüfung und nachvollziehbare Aufgaben
 
 Roadmap stage: AI server analysis. Responses now display local ACT reference

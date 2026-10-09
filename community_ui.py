@@ -7,6 +7,8 @@ from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
 from engagement import engagement_ideas,activity_quality
 from evidence import activity_evidence,evidence_preview
+from adaptive_tabs import AdaptiveTabs
+from activity_compare import compare_samples
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
 from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields
@@ -28,7 +30,7 @@ class CommunityPage(QWidget):
         if remembered:self.offline_server.setCurrentText(remembered)
         row.addWidget(self.offline_server,1)
         self.open_local=QPushButton('Lokale Daten öffnen');self.open_local.clicked.connect(self.open_offline);row.addWidget(self.open_local);layout.addLayout(row)
-        self.tabs=QTabWidget();layout.addWidget(self.tabs)
+        self.tabs=AdaptiveTabs();layout.addWidget(self.tabs)
         def page(name):
             w=QWidget();l=QVBoxLayout(w);self.tabs.addTab(w,name);return l
         a=page('Activity System')
@@ -46,11 +48,15 @@ class CommunityPage(QWidget):
         b=QPushButton('Passenden Mitmachimpuls ansehen');b.clicked.connect(lambda:self.tabs.setCurrentIndex(4));a.addWidget(b)
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
+        self.activity_comparison=QLabel();self.activity_comparison.setWordWrap(True);self.activity_comparison.setTextFormat(Qt.PlainText);a.addWidget(self.activity_comparison)
         self.history_table=QTableWidget(0,5);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Gelesen','Abdeckung'])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.history_table.setEditTriggers(QTableWidget.NoEditTriggers);self.history_table.setAlternatingRowColors(True);a.addWidget(self.history_table)
         note=QLabel('¹ Messpunkte überlappen und dürfen nicht addiert werden. Es zählen nur zugängliche, noch vorhandene Nachrichten. Alte Messpunkte nutzen weiterhin die frühere 100-Nachrichten-Stichprobe.');note.setWordWrap(True);a.addWidget(note)
         n=page('Lobby Night')
         info=QLabel('Lokaler Planer: erstellt einen Abstimmungstext und erinnert beim Termin, solange die App läuft. Verpasste Termine werden beim nächsten Verbinden angezeigt. Eine echte Discord-Abstimmung kann unten nach Vorschau veröffentlicht werden. Kein Discord-Event. Geplante Veröffentlichungen benötigen die laufende, verbundene App.');info.setWordWrap(True);n.addWidget(info)
+        self.night_steps=AdaptiveTabs();n.addWidget(self.night_steps)
+        plan_page=QWidget();n=QVBoxLayout(plan_page);self.night_steps.addTab(plan_page,'1 · Plan und Erinnerung')
+        n.addWidget(QLabel('Titel und Termin (lokale PC-Zeit)'))
         self.night_title=QLineEdit('Lobby Night');n.addWidget(self.night_title)
         self.night_time=QLineEdit((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.night_time.setPlaceholderText('Lokale PC-Zeit: JJJJ-MM-TT HH:MM');n.addWidget(self.night_time)
         self.options=QTextEdit();self.options.setPlaceholderText('Ein Spielvorschlag pro Zeile (2–10)');self.options.setMaximumHeight(100);n.addWidget(self.options)
@@ -65,6 +71,11 @@ class CommunityPage(QWidget):
         for label,value in [('Zum Termin',0),('15 Minuten vorher',15),('30 Minuten vorher',30),('1 Stunde vorher',60),('1 Tag vorher',1440),('Ausgeschaltet',None)]:self.night_reminder.addItem(label,value)
         row.addWidget(self.night_reminder);self.night_reminder_save=QPushButton('Erinnerung für Auswahl speichern');self.night_reminder_save.clicked.connect(self.save_night_reminder);row.addWidget(self.night_reminder_save);n.addLayout(row)
         self.night_reminder_status=QLabel('Erinnerungen erscheinen nur lokal bei laufender App.');self.night_reminder_status.setWordWrap(True);n.addWidget(self.night_reminder_status)
+        b=QPushButton('Abstimmungstext kopieren');b.clicked.connect(self.copy_poll);n.addWidget(b)
+        b=QPushButton('Ausgewählten Termin absagen');b.clicked.connect(self.cancel_night);n.addWidget(b)
+        b=QPushButton('Weiter zur Abstimmung');b.clicked.connect(lambda:self.night_steps.setCurrentIndex(1));n.addWidget(b);n.addStretch()
+        delivery_page=QWidget();n=QVBoxLayout(delivery_page);self.night_steps.addTab(delivery_page,'2 · Abstimmung und Versand')
+        self.night_delivery_selection=QLabel('Zuerst unter Plan & Erinnerung einen gespeicherten Termin auswählen.');self.night_delivery_selection.setWordWrap(True);self.night_delivery_selection.setTextFormat(Qt.PlainText);n.addWidget(self.night_delivery_selection)
         self.poll_readiness=QLabel();self.poll_readiness.setWordWrap(True);self.poll_readiness.setTextFormat(Qt.PlainText);n.addWidget(self.poll_readiness)
         n.addWidget(QLabel('Discord-Abstimmung: Zielkanal und Laufzeit'))
         poll_row=QHBoxLayout();self.poll_channel=QComboBox();poll_row.addWidget(self.poll_channel,2)
@@ -81,8 +92,7 @@ class CommunityPage(QWidget):
         self.poll_results=QPushButton('Ergebnisse der veröffentlichten Abstimmung laden');self.poll_results.clicked.connect(self.load_poll_results);n.addWidget(self.poll_results)
         self.poll_link=QPushButton('Abstimmungslink kopieren');self.poll_link.clicked.connect(self.copy_poll_link);n.addWidget(self.poll_link)
         self.poll_reset=QPushButton('Unklaren Versand nach manueller Discord-Prüfung freigeben');self.poll_reset.clicked.connect(self.reset_poll);n.addWidget(self.poll_reset)
-        b=QPushButton('Abstimmungstext kopieren');b.clicked.connect(self.copy_poll);n.addWidget(b)
-        b=QPushButton('Ausgewählten Termin absagen');b.clicked.connect(self.cancel_night);n.addWidget(b)
+        n.addStretch()
         c=page('Creator Hub')
         info=QLabel('Lokale Bewerbungsübersicht für Twitch-/YouTube-Creator. Änderungen vergeben noch keine Discord-Rollen und aktivieren keine Stream-Benachrichtigungen.');info.setWordWrap(True);c.addWidget(info)
         self.creator_edit_id=None;self.creator_edit_guild=None
@@ -170,7 +180,7 @@ class CommunityPage(QWidget):
             self.status.setText('Offline · lokale Daten für Server '+self.guild_id if self.guild_id else 'Tabs sind verfügbar. Für lokale Planung eine Server-ID eingeben; für Aktivität Discord verbinden.')
             if self.guild_id:self.refresh()
             else:
-                self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.refresh_engagement()
+                self.activity.clear();self.nights.clear();self.creators.clear();self.history_table.setRowCount(0);self._history_signature=None;self.activity_metrics.setText('Keine Server-ID gewählt.');self.activity_comparison.clear();self.refresh_engagement()
                 self.activity_quality.setText('Noch keine Messung. Für neue Daten diesen Server verbinden.')
                 self._night_signature=None;self._creator_signature=None
         self.refresh_creators();self.refresh_connection_controls();self.dashboard();self.refresh_analysis_preview()
@@ -258,6 +268,7 @@ class CommunityPage(QWidget):
             self.activity_metrics.setText('Noch keine Daten für diesen Kanal.');text='Wähle einen Kanal und klicke auf Erfassen. Bestehende Stichproben aus älteren Versionen bleiben erhalten; 24h-Werte kommen mit der nächsten Erfassung.'
         if self.activity.toPlainText()!=text:self.activity.setPlainText(text)
         rows=list(reversed(self.store.history(self.guild_id,channel))) if self.guild_id and channel else []
+        self.activity_comparison.setText(compare_samples(channel,list(reversed(rows))))
         signature=(self.guild_id,channel,repr(rows))
         if getattr(self,'_history_signature',None)==signature:return
         self.history_table.setUpdatesEnabled(False)
@@ -358,6 +369,9 @@ class CommunityPage(QWidget):
             self.show_poll_status();self.status.setText('Lokale Erinnerung gespeichert. Keine Discord-Nachricht geplant.')
 
     def refresh_poll_readiness(self,*_):
+        if hasattr(self,'night_delivery_selection'):
+            selected=self.chosen_night()
+            self.night_delivery_selection.setText('Ausgewählt: '+selected['title']+' · '+selected['when']+' · '+selected['status'] if selected else 'Zuerst unter Plan & Erinnerung einen gespeicherten Termin auswählen.')
         if not hasattr(self,'poll_readiness') or not hasattr(self,'poll_multi'):return
         n=self.chosen_night()
         if not n:self.poll_readiness.setText('Veröffentlichung: zuerst einen gespeicherten Plan auswählen.');return
