@@ -77,6 +77,32 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertEqual(w.api_key_input.text(),'')
         self.assertEqual(w.ai_keys['anthropic'],'claude-test-key')
 
+    def test_answer_sources_and_task_provenance_use_original_snapshot(self):
+        from datetime import datetime,timezone
+        from PySide6.QtGui import QTextCursor
+        from evidence import activity_evidence
+        w=self.w;guild='930828728966217728'
+        w.server_context={'id':guild,'channels':[]}
+        sample={'checked_at':datetime.now(timezone.utc).isoformat(),'messages_24h':7,'participants_24h':2,'coverage':'window_reached'}
+        w.community.store.guild(guild)['activity']['c']=sample
+        key=activity_evidence({'activity':{'c':sample}})['channels'][0]['latest']['source_id']
+        answer='🎮 Gemeinsam spielen ['+key+'] [ACT-invented]'
+        w.api_key_input.setText('test-key');w.ai_input.setText('Analyse')
+        with patch('main.request_plan',return_value={'message':answer,'spec':None,'guild':guild}),patch.object(w,'run_discord_job',side_effect=lambda work,done,failed:done(work())):
+            w.ask_ai(analysis_only=True)
+        self.assertIn('Unbekannte Quelle',w.chat.toPlainText())
+        record=w.ai_source_records[0]
+        sample['messages_24h']=999
+        cursor=w.chat.textCursor();cursor.setPosition(record['start']);cursor.setPosition(record['end'],QTextCursor.KeepAnchor);w.chat.setTextCursor(cursor)
+        with patch('main.TaskReview.exec',return_value=1):w.save_ai_selection()
+        notes=w.store.items[-1]['notes'];self.assertIn('7 Nachrichten',notes);self.assertNotIn('999',notes)
+        self.assertIn(guild,notes);self.assertIn('Herkunft: KI-Vorschlag',notes)
+        self.assertTrue(notes.startswith(answer))
+        # Appending must not replace selected old answers (also preserves ranges).
+        before=w.chat.toPlainText();w.append_chat('Weitere Antwort')
+        self.assertEqual(w.chat.toPlainText(),before+'Weitere Antwort')
+        w.clear_ai_chat();self.assertEqual(w.ai_source_records,[])
+
     def test_night_reminder_and_creator_notes_ui(self):
         from datetime import datetime,timedelta
         c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()

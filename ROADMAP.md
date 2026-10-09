@@ -12,6 +12,10 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.12 — AI server analysis: per-response ACT lookup with unknown-source warnings;
+reviewed tasks retain editable source snapshots. Chat appends preserve old text
+and source positions even while text is selected. No factual-validation claim.
+
 0.4.11 — AI analysis usability: actions above the bounded, scrollable evidence
 preview so the shared Community tab height does not hide the start controls.
 

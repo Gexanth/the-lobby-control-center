@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 from datetime import datetime
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QShortcut,QKeySequence
+from PySide6.QtGui import QShortcut,QKeySequence,QTextCursor
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QHBoxLayout,QVBoxLayout,
     QScrollArea,QProgressBar,QCheckBox,QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
 from storage import TaskStore, STATUSES
 from task_review import TaskReview
+from citations import source_index,reference_report
 from lobby import Lobby, DiscordError
 from channel_actions import ChannelActions
 from ai_assistant import request_plan, AIError
@@ -124,6 +125,7 @@ class MainWindow(QMainWindow):
         self.connection_badge.setText('Verbunden: '+name)
 
     def assistant(self):
+        self.ai_source_records=[]
         p=Page('Assistent','KI-Aufträge besprechen und Kanalaktionen vorbereiten. Die Ausführung erfolgt nach einer konkreten Vorschau.')
         self.chat=QTextEdit(); self.chat.setReadOnly(True)
         self.chat.setPlaceholderText('Beispiel: Erstelle einen Textkanal namens test in der Kategorie EVENTS.')
@@ -144,7 +146,13 @@ class MainWindow(QMainWindow):
     def save_ai_task(self):
         text=self.ai_input.text().strip()
         if text and self.save_task(text):
-            self.chat.insertPlainText('System: Aufgabe lokal gespeichert: '+text+'\n\n');self.ai_input.clear()
+            self.append_chat('System: Aufgabe lokal gespeichert: '+text+'\n\n');self.ai_input.clear()
+
+    def append_chat(self,text):
+        cursor=QTextCursor(self.chat.document());cursor.movePosition(QTextCursor.End)
+        start=cursor.position();cursor.insertText(text)
+        self.chat.setTextCursor(cursor)
+        return start,cursor.position()
 
     def save_ai_selection(self):
         if self.discord_worker is not None:return
@@ -152,6 +160,12 @@ class MainWindow(QMainWindow):
         if not text:return
         if len(text)>4000:self.ai_status.setText('Bitte einen Vorschlag mit höchstens 4000 Zeichen markieren.');return
         dialog=TaskReview(self,text)
+        cursor=self.chat.textCursor()
+        for record in self.ai_source_records:
+            if record['start']<=cursor.selectionStart() and cursor.selectionEnd()<=record['end']:
+                provenance='\n\nHerkunft: KI-Vorschlag · Server '+str(record['guild'])+' · Anfrage '+record['time']+'\n'+reference_report(text,record['sources'])
+                dialog.notes.setPlainText(text+provenance)
+                break
         while dialog.exec():
             if self.discord_worker is not None:
                 self.ai_status.setText('Ein Vorgang wurde inzwischen gestartet. Aufgabe anschließend erneut vorbereiten.');return
@@ -164,7 +178,7 @@ class MainWindow(QMainWindow):
 
     def clear_ai_chat(self):
         if self.discord_worker is not None:return
-        self.chat.clear();self.ai_history=[];self.pending_ai=None;self.ai_apply.setEnabled(False)
+        self.chat.clear();self.ai_source_records=[];self.ai_history=[];self.pending_ai=None;self.ai_apply.setEnabled(False)
         self.ai_status.setText('Gespräch geleert. Keine Discord-Aktion ausgeführt.')
 
     def ask_ai(self,analysis_only=False):
@@ -184,16 +198,22 @@ class MainWindow(QMainWindow):
             context['community']=self.community.store.analysis_context(context['id'])
         history=list(self.ai_history)
         self.pending_ai=None;self.ai_apply.setEnabled(False)
-        self.chat.insertPlainText('Du: '+prompt+'\n');self.ai_input.clear()
+        self.append_chat('Du: '+prompt+'\n');self.ai_input.clear()
+        sources=source_index(context);requested_at=datetime.now().astimezone().isoformat(timespec='seconds')
         self.ai_status.setText('KI erstellt eine Antwort …')
         def answered(result):
-            self.chat.insertPlainText('Assistent: '+result['message']+'\n\n')
+            self.append_chat('Assistent: ')
+            start,end=self.append_chat(result['message'])
+            self.ai_source_records.append({'start':start,'end':end,'guild':context['id'] if context else 'nicht verbunden','time':requested_at,'sources':sources})
+            self.append_chat('\n\n')
+            if analysis_only or '[ACT-' in result['message']:
+                self.append_chat('Quellenprüfung: '+reference_report(result['message'],sources)+'\n\n')
             self.ai_history.extend([{'role':'user','content':prompt},{'role':'assistant','content':result['message']}]);self.ai_history=self.ai_history[-8:]
             self.pending_ai=result if result['spec'] else None
             self.ai_apply.setEnabled(self.pending_ai is not None)
             self.ai_status.setText('Kanalaktion vorbereitet. Noch nicht ausgeführt.' if result['spec'] else 'Antwort erhalten. Keine Kanalaktion vorbereitet.')
         def failed(message):
-            self.chat.insertPlainText('System: '+message+'\n\n');self.ai_status.setText('KI-Anfrage fehlgeschlagen. Keine Discord-Aktion ausgeführt.')
+            self.append_chat('System: '+message+'\n\n');self.ai_status.setText('KI-Anfrage fehlgeschlagen. Keine Discord-Aktion ausgeführt.')
         self.run_discord_job(lambda:request_plan(key,model,prompt,context,history,provider=provider,analysis_only=analysis_only),answered,failed)
 
     def apply_ai_plan(self):

@@ -1,3 +1,21 @@
+## 0.4.12 — Quellenprüfung und nachvollziehbare Aufgaben
+
+Roadmap stage: AI server analysis. Responses now display local ACT reference
+lookups against the exact request snapshot; unknown references and absent ACT
+citations are disclosed. Known sources show channel, capture time, sample counts,
+coverage and quality. This validates lookup only, never factual correctness.
+Up to ten distinct references are shown; additional references are disclosed.
+When selected text lies within one assistant response, task review includes
+editable provenance (server, request time, references and original sample data).
+Selections spanning messages are not attributed automatically. Existing task
+format, manual editing, cancel and failed-save retry remain unchanged.
+Chat writes always append, fixing replacement of selected previous text during
+new responses. Response positions use Qt cursor offsets, including emoji.
+Source snapshots are session-local and cleared with the conversation/provider
+change; only reviewed task notes persist. No new dependencies or permissions,
+no real Discord mutation and no paid model request. Next: per-recommendation
+review that distinguishes source lookup from whether a claim is supported.
+
 ## 0.4.11 — Analyseaktionen direkt erreichbar
 
 Visual verification found that the shared Community tab height can push controls
