@@ -340,6 +340,17 @@ class CommunityAccessTests(unittest.TestCase):
         d=TaskReview(w,'Idee');d.title.clear();self.assertFalse(d.buttons.button(QDialogButtonBox.Save).isEnabled())
         d.title.setText('Auftrag');d.notes.setPlainText('x'*8001);self.assertFalse(d.validate());d.close()
 
+    def test_task_review_preserves_edits_after_save_failure(self):
+        from PySide6.QtGui import QTextCursor
+        w=self.w;w.chat.setPlainText('Vorschlag');cursor=w.chat.textCursor();cursor.select(QTextCursor.Document);w.chat.setTextCursor(cursor)
+        dialogs=[]
+        def review(d):
+            dialogs.append(d)
+            if len(dialogs)==1:d.title.setText('Bearbeitet');d.notes.setPlainText('Mein nächster Schritt');return 1
+            self.assertIs(d,dialogs[0]);self.assertEqual(d.title.text(),'Bearbeitet');self.assertEqual(d.notes.toPlainText(),'Mein nächster Schritt');return 0
+        with patch('main.TaskReview.exec',review),patch.object(w,'mutate',return_value=False):w.save_ai_selection()
+        self.assertEqual(w.store.items,[]);self.assertEqual(len(dialogs),2)
+
     def test_creator_edit_filter_and_keyboard_selection(self):
         c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()
         c.creator_name.setText('Alpha');c.creator_url.setText('https://www.twitch.tv/alpha');c.add_creator()

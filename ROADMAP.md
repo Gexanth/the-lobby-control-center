@@ -12,6 +12,9 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.9 — AI assistant task reliability: retain edited review during save failures;
+retry or cancel without losing the current dialog contents. No new data format.
+
 0.4.8 — AI assistant follow-through: editable task review for selected suggestions,
 with details/status and open-task duplicate prevention. This follows the existing
 Dashboard/evidence foundation. No autonomous action or new server data source.

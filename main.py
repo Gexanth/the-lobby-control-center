@@ -152,14 +152,15 @@ class MainWindow(QMainWindow):
         if not text:return
         if len(text)>4000:self.ai_status.setText('Bitte einen Vorschlag mit höchstens 4000 Zeichen markieren.');return
         dialog=TaskReview(self,text)
-        if not dialog.exec():return
-        if self.discord_worker is not None:
-            self.ai_status.setText('Ein Vorgang wurde inzwischen gestartet. Aufgabe anschließend erneut vorbereiten.');return
-        title=dialog.title.text().strip();notes=dialog.notes.toPlainText().strip();status=dialog.status.currentText()
-        if any(t['text']==title and t.get('notes','')==notes and t['status']!='Erledigt' for t in self.store.items):
-            self.ai_status.setText('Diese offene Aufgabe ist bereits gespeichert. Unter Aufgaben findest du sie wieder.');return
-        if self.mutate(lambda:self.store.add(title,notes,status)):
-            self.ai_status.setText('Vorbereitete Aufgabe lokal gespeichert. Noch nicht ausgeführt.')
+        while dialog.exec():
+            if self.discord_worker is not None:
+                self.ai_status.setText('Ein Vorgang wurde inzwischen gestartet. Aufgabe anschließend erneut vorbereiten.');return
+            title=dialog.title.text().strip();notes=dialog.notes.toPlainText().strip();status=dialog.status.currentText()
+            if any(t['text']==title and t.get('notes','')==notes and t['status']!='Erledigt' for t in self.store.items):
+                self.ai_status.setText('Diese offene Aufgabe ist bereits gespeichert. Unter Aufgaben findest du sie wieder.');return
+            if self.mutate(lambda:self.store.add(title,notes,status)):
+                self.ai_status.setText('Vorbereitete Aufgabe lokal gespeichert. Noch nicht ausgeführt.');return
+            dialog.feedback.setText('Speichern fehlgeschlagen. Dein Entwurf ist erhalten; erneut speichern oder abbrechen.')
 
     def clear_ai_chat(self):
         if self.discord_worker is not None:return

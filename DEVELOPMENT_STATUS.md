@@ -1,3 +1,11 @@
+## 0.4.9 — Aufgabenentwurf bei Speicherfehler behalten
+
+AI assistant follow-through reliability: after a failed task write, reopen the
+same editable review with title/details/status retained and clear retry feedback.
+Nothing is marked saved after failure; cancel remains possible. This preserves
+the draft during this dialog session, not across app termination. Regression
+verifies same dialog, edited content retained and no task created on failure.
+
 ## 0.4.8 — Empfehlungen als überprüfbare Aufgaben
 
 Roadmap stage: AI assistant / server analysis follow-through. Explicitly selected
