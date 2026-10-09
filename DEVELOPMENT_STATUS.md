@@ -1,3 +1,19 @@
+## 0.4.6 — Dashboard: priorisierte Aufmerksamkeit
+
+Neue Karte direkt unter dem Verbindungsstatus: unklare Abstimmungs-/Stream-
+Sendungen, fällige und gestoppte Veröffentlichungspläne, Stream-Prüfprobleme,
+gestoppte Sitzungsüberwachung, veraltete/begrenzte/ungültige Kanalstichproben und
+offene Creator-Bewerbungen. Jeder Hinweis öffnet den passenden Community-Tab.
+Die Reihenfolge priorisiert Versandklärung vor fälligen Aktionen und Routine.
+Bestehende Qualitäts-/Terminregeln werden wiederverwendet; kein Netzwerkzugriff,
+keine automatische Änderung und keine neue Speicherung. Unveränderte Hinweise
+behalten ihre Widgets. Leere Daten bestätigen keine vollständige Serverprüfung.
+Annahme: Hinweise gelten für den lokal ausgewählten Server; pausierte Quellen
+sind bewusste Einstellungen und werden nicht als Fehler behandelt.
+
+Nächster Schritt: Dashboard-Verlaufsübersicht mit sichtbarer Datenabdeckung,
+danach die KI-Serveranalyse. Daten, Abhängigkeiten und Starter bleiben kompatibel.
+
 ## 0.4.5 — Dashboard: reale Stream-Gesundheit
 
 Die Dashboard-Stufe beginnt mit einer operativen Stream-Übersicht. Für den lokal

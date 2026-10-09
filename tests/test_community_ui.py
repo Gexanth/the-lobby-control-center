@@ -296,6 +296,17 @@ class CommunityAccessTests(unittest.TestCase):
         c.stream_panel.running.setChecked(True);self.assertIn('läuft in dieser App-Sitzung',self.w.dashboard_page.stream_health.text())
         c.stream_panel.running.setChecked(False)
 
+    def test_attention_navigation_refresh_and_offline_clear(self):
+        from PySide6.QtWidgets import QPushButton,QLabel
+        c=self.w.community;g='930828728966217728';c.offline_server.setCurrentText(g);c.open_offline()
+        c.store.save_creator(g,'<b>Private creator</b>','https://twitch.tv/example','Bewerbung');c.dashboard()
+        d=self.w.dashboard_page
+        row=d.attention_body.itemAt(1).widget();self.assertIn('1 offene Creator-Bewerbungen',row.findChild(QLabel).text())
+        self.assertNotIn('Private creator',row.findChild(QLabel).text())
+        c.dashboard();self.assertIs(d.attention_body.itemAt(1).widget(),row)
+        row.findChild(QPushButton).click();self.assertEqual(self.w.stack.currentIndex(),7);self.assertEqual(c.tabs.currentIndex(),2)
+        d.refresh_streams(None,c.store);self.assertEqual(d.attention_body.count(),1);self.assertIn('Wähle',d.attention_empty.text())
+
     def test_creator_edit_filter_and_keyboard_selection(self):
         c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()
         c.creator_name.setText('Alpha');c.creator_url.setText('https://www.twitch.tv/alpha');c.add_creator()

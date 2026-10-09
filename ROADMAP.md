@@ -12,6 +12,12 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.6 Dashboard progress: prioritized local attention list with direct Community
+navigation implemented. Ambiguous sends, due/stopped polls, stream errors/stopped
+session, activity quality and open applications use existing stored evidence.
+No network request or live server mutation. Next: actual history/coverage overview,
+then AI server analysis; authorized module order remains unchanged.
+
 1. Activity history and consistent time windows, permissions feedback and participation prompts.
 2. Reviewed Discord voting-message integration, delivery records and reminders that avoid duplicates. Always clarify whether scheduling depends on the desktop app remaining connected. Actual Discord event creation was previously withdrawn.
 3. Creator workflows integrated with Discord roles and verified live-stream sources.

@@ -2,12 +2,14 @@
 from datetime import datetime,timezone
 import sqlite3
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton
+from PySide6.QtWidgets import QWidget,QFrame,QVBoxLayout,QHBoxLayout,QLabel,QPushButton,QSizePolicy
 from community import parse_time
 from streams import stream_overview
+from attention import attention_items
 
 def label(text,name=None):
     widget=QLabel(text);widget.setTextFormat(Qt.PlainText);widget.setWordWrap(True)
+    widget.setSizePolicy(QSizePolicy.Preferred,QSizePolicy.Minimum)
     if name:widget.setObjectName(name)
     return widget
 
@@ -38,6 +40,11 @@ class DashboardPage(QWidget):
         connection_row.addWidget(self.connection,1);button=QPushButton('Discord verbinden');button.setObjectName('primary')
         button.clicked.connect(lambda:host.open_page(2));connection_row.addWidget(button);body.addLayout(connection_row);layout.addWidget(frame)
         self.connection_button=button
+
+        frame,body=panel('Das braucht deine Aufmerksamkeit')
+        self.attention_body=body;self.attention_signature=None
+        self.attention_empty=label('Wähle unter Community einen Server für deine lokalen Hinweise.','muted')
+        body.addWidget(self.attention_empty);layout.addWidget(frame)
 
         layout.addWidget(label('Community verwalten','sectionTitle'));row=QHBoxLayout();row.setSpacing(14)
         for title,description,action,tab in [('Activity System','Echte Kanalaktivität erfassen und passende Mitmachimpulse finden.','Aktivität öffnen',0),('Lobby Night','Spiele vorschlagen, Abstimmungen planen und Versand prüfen.','Lobby Night öffnen',1),('Creator Hub','Creator-Bewerbungen und ihren Bearbeitungsstand verwalten.','Creator Hub öffnen',2)]:
@@ -76,6 +83,7 @@ class DashboardPage(QWidget):
     def refresh_streams(self,guild,store,monitoring=False):
         if not guild:
             self.stream_health.setText('Wähle unter Community einen Server, um lokale Stream-Zustände zu sehen.')
+            self.refresh_attention(None)
             return
         try:
             state=stream_overview(store.path.parent,guild,store.guild(guild)['creators'])
@@ -85,5 +93,25 @@ class DashboardPage(QWidget):
             deliveries=f"Lokales Versandprotokoll: {state['sent']} bestätigt gesendet · {state['unclear']} unklar"
             if not state['journal']:deliveries='Lokales Versandprotokoll: noch keine Abrufe oder Sendungen gespeichert'
             self.stream_health.setText(f"{state['configured']} eingerichtet · {state['active']} aktiv · {state['paused']} pausiert/erneut zu prüfen\nÜberwachung {session}.\n{checks}\n{deliveries}")
+            self.refresh_attention(attention_items(store.guild(guild),state,monitoring))
         except (OSError,sqlite3.Error,ValueError):
             self.stream_health.setText('Lokales Stream-Protokoll ist nicht lesbar. Creator Hub öffnen und Überwachung gestoppt lassen.')
+            self.refresh_attention(attention_items(store.guild(guild),None,monitoring))
+
+    def refresh_attention(self,items):
+        signature=repr(items)
+        if signature==self.attention_signature:return
+        self.attention_signature=signature
+        while self.attention_body.count()>1:
+            item=self.attention_body.takeAt(1)
+            if item.widget():item.widget().deleteLater()
+        self.attention_empty.setText('Wähle unter Community einen Server für deine lokalen Hinweise.' if items is None else 'Keine offenen Hinweise in den gespeicherten Daten. Das bestätigt keine vollständige Serverprüfung.')
+        self.attention_empty.setVisible(not items)
+        for hint in items or []:
+            row=QWidget();body=QHBoxLayout(row);body.setContentsMargins(0,4,0,4)
+            row.setStyleSheet('background: transparent;');row.setSizePolicy(QSizePolicy.Preferred,QSizePolicy.Minimum)
+            text=label(hint['title']+'\n'+hint['detail'],'muted');body.addWidget(text,1)
+            button=QPushButton('Prüfen');button.setAccessibleName(hint['title']+' prüfen')
+            button.setMinimumHeight(38)
+            button.clicked.connect(lambda _,tab=hint['tab']:self.host.open_page(7,tab));body.addWidget(button)
+            self.attention_body.addWidget(row)

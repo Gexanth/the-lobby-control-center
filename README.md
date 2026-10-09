@@ -322,6 +322,12 @@ API-Referenzen:
 
 ## Dashboard stream health (0.4.5)
 
+From 0.4.6, "Das braucht deine Aufmerksamkeit" prioritizes ambiguous deliveries,
+due/stopped poll plans, stream check problems, stopped monitoring, unreliable
+activity snapshots and open creator applications. "Prüfen" opens the matching
+Community tab. Hints use saved data and refresh locally; they do not execute an
+action. An empty list does not certify complete server health.
+
 The Dashboard now summarizes the selected server's locally configured stream
 sources and existing `streams.sqlite3` journal: active/paused setup, whether
 monitoring is running in this app session, current/due/never-checked sources,
