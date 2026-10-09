@@ -12,6 +12,11 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.8 — AI assistant follow-through: editable task review for selected suggestions,
+with details/status and open-task duplicate prevention. This follows the existing
+Dashboard/evidence foundation. No autonomous action or new server data source.
+Next: evidence-aware recommendation review and task provenance.
+
 0.4.7: Dashboard history/coverage and unified night/creator status implemented.
 AI server analysis now receives bounded local evidence and rejects action plans
 from the analysis entry. Selected recommendations can become local tasks.

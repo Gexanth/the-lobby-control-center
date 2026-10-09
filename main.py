@@ -8,6 +8,7 @@ from PySide6.QtGui import QShortcut,QKeySequence
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QHBoxLayout,QVBoxLayout,
     QScrollArea,QProgressBar,QCheckBox,QPushButton,QLabel,QStackedWidget,QFrame,QLineEdit,QTextEdit,QListWidget,QMessageBox,QComboBox,QListWidgetItem,QTabWidget)
 from storage import TaskStore, STATUSES
+from task_review import TaskReview
 from lobby import Lobby, DiscordError
 from channel_actions import ChannelActions
 from ai_assistant import request_plan, AIError
@@ -131,7 +132,7 @@ class MainWindow(QMainWindow):
         self.ai_save=QPushButton('Nur als Aufgabe speichern');self.ai_save.clicked.connect(self.save_ai_task)
         self.ai_apply=QPushButton('Vorgeschlagene Aktion prüfen');self.ai_apply.setEnabled(False);self.ai_apply.clicked.connect(self.apply_ai_plan)
         self.ai_clear=QPushButton('Gespräch leeren');self.ai_clear.clicked.connect(self.clear_ai_chat)
-        self.ai_save_selection=QPushButton('Markierten Vorschlag als Aufgabe speichern');self.ai_save_selection.setEnabled(False);self.ai_save_selection.clicked.connect(self.save_ai_selection)
+        self.ai_save_selection=QPushButton('Markierten Vorschlag als Aufgabe vorbereiten');self.ai_save_selection.setEnabled(False);self.ai_save_selection.clicked.connect(self.save_ai_selection)
         self.chat.selectionChanged.connect(lambda:self.ai_save_selection.setEnabled(bool(self.chat.textCursor().selectedText().strip()) and self.discord_worker is None))
         p.layout.addWidget(self.chat,1)
         row=QHBoxLayout();row.addWidget(self.ai_input,1);row.addWidget(self.ai_send);p.layout.addLayout(row)
@@ -150,7 +151,15 @@ class MainWindow(QMainWindow):
         text=self.chat.textCursor().selectedText().replace('\u2029','\n').strip()
         if not text:return
         if len(text)>4000:self.ai_status.setText('Bitte einen Vorschlag mit höchstens 4000 Zeichen markieren.');return
-        if self.save_task(text):self.ai_status.setText('Markierter Vorschlag als lokale Aufgabe gespeichert. Noch nicht ausgeführt.')
+        dialog=TaskReview(self,text)
+        if not dialog.exec():return
+        if self.discord_worker is not None:
+            self.ai_status.setText('Ein Vorgang wurde inzwischen gestartet. Aufgabe anschließend erneut vorbereiten.');return
+        title=dialog.title.text().strip();notes=dialog.notes.toPlainText().strip();status=dialog.status.currentText()
+        if any(t['text']==title and t.get('notes','')==notes and t['status']!='Erledigt' for t in self.store.items):
+            self.ai_status.setText('Diese offene Aufgabe ist bereits gespeichert. Unter Aufgaben findest du sie wieder.');return
+        if self.mutate(lambda:self.store.add(title,notes,status)):
+            self.ai_status.setText('Vorbereitete Aufgabe lokal gespeichert. Noch nicht ausgeführt.')
 
     def clear_ai_chat(self):
         if self.discord_worker is not None:return

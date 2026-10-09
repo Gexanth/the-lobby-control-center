@@ -1,3 +1,20 @@
+## 0.4.8 — Empfehlungen als überprüfbare Aufgaben
+
+Roadmap stage: AI assistant / server analysis follow-through. Explicitly selected
+assistant text now opens an editable local review: concrete task, details and
+status. Cancel writes nothing. The selected text initially fills the details;
+the first line suggests a short task title. Empty title / >8000 detail characters
+cannot save. Existing open tasks with identical title/details are not duplicated.
+After the modal dialog, a newly started worker blocks a stale save. TaskStore
+adds text/details/status atomically using the existing format and defaults.
+No automatic Discord action, additional API call, credential/dependency/launcher
+change. This is user-reviewed text, not an assertion that AI advice is verified.
+
+Validation: all 99 tests passed locally with Qt and zero skips, including cancel,
+edited persistence, status, duplicate prevention, length validation and busy guard.
+Next: evidence-aware recommendation review and clearer task provenance while
+preserving manually edited tasks; real paid-model output remains untested.
+
 ## 0.4.7 — Verlauf, belegte Analyse und Update-Zuverlässigkeit
 
 Dashboard stage: selectable local channel history, latest 12 overlapping 24h

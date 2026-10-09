@@ -29,8 +29,9 @@ class TaskStore:
         os.replace(temporary, self.path)
         self.items = items
 
-    def add(self, text):
-        item = dict(id=str(uuid.uuid4()), text=text, created=datetime.now().isoformat(timespec='minutes'), status=STATUSES[0], notes='')
+    def add(self, text, notes='', status=STATUSES[0]):
+        if status not in STATUSES:raise ValueError('Unbekannter Status')
+        item = dict(id=str(uuid.uuid4()), text=text, created=datetime.now().isoformat(timespec='minutes'), status=status, notes=notes)
         self.commit(self.items + [item])
         return item
 

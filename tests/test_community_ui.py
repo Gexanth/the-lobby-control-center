@@ -318,9 +318,27 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertEqual(d.history_table.item(0,1).text(),'7')
         c.dashboard();self.assertEqual(d.history_channel.count(),1)
         self.w.chat.setPlainText('Eine gemeinsame Runde vorschlagen');cursor=self.w.chat.textCursor();cursor.select(QTextCursor.Document);self.w.chat.setTextCursor(cursor)
-        self.w.ai_save_selection.click();self.assertEqual(self.w.store.items[-1]['text'],'Eine gemeinsame Runde vorschlagen')
+        with patch('main.TaskReview.exec',return_value=1):self.w.ai_save_selection.click()
+        self.assertEqual(self.w.store.items[-1]['text'],'Eine gemeinsame Runde vorschlagen')
         self.assertIn('Noch nicht ausgeführt',self.w.ai_status.text())
         d.refresh_streams(None,c.store);self.assertEqual(d.history_table.rowCount(),0)
+
+    def test_task_review_cancel_edit_duplicate_and_busy_guard(self):
+        from PySide6.QtGui import QTextCursor
+        from task_review import TaskReview
+        from PySide6.QtWidgets import QDialogButtonBox
+        w=self.w;w.chat.setPlainText('Idee\nBegründung');cursor=w.chat.textCursor();cursor.select(QTextCursor.Document);w.chat.setTextCursor(cursor)
+        with patch('main.TaskReview.exec',return_value=0):w.save_ai_selection()
+        self.assertEqual(w.store.items,[])
+        def edited(d):d.title.setText('Konkrete Aufgabe');d.notes.setPlainText('Erster Schritt');d.status.setCurrentText('In Arbeit');return 1
+        with patch('main.TaskReview.exec',edited):w.save_ai_selection();w.save_ai_selection()
+        self.assertEqual(len(w.store.items),1);self.assertEqual(w.store.items[0]['notes'],'Erster Schritt');self.assertEqual(w.store.items[0]['status'],'In Arbeit')
+        self.assertIn('bereits',w.ai_status.text())
+        def busy(d):w.discord_worker=object();return 1
+        with patch('main.TaskReview.exec',busy):w.save_ai_selection()
+        w.discord_worker=None;self.assertEqual(len(w.store.items),1)
+        d=TaskReview(w,'Idee');d.title.clear();self.assertFalse(d.buttons.button(QDialogButtonBox.Save).isEnabled())
+        d.title.setText('Auftrag');d.notes.setPlainText('x'*8001);self.assertFalse(d.validate());d.close()
 
     def test_creator_edit_filter_and_keyboard_selection(self):
         c=self.w.community;guild='930828728966217728';c.offline_server.setCurrentText(guild);c.open_offline()

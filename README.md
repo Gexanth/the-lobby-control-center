@@ -2,6 +2,14 @@
 
 Discord control center with a Python/PySide6 desktop interface.
 
+## Recommendation review (0.4.8)
+
+Select a passage in the assistant and choose "Markierten Vorschlag als Aufgabe
+vorbereiten". Edit the task, details and status before saving. Cancel keeps tasks
+unchanged; identical open title/details are not duplicated. Saving a task never
+executes a Discord action. The selection may contain your own text or AI advice;
+review its accuracy before using it.
+
 ## Start on Windows
 
 Install Python 3.12, extract the latest release ZIP, and open `start.bat`.
