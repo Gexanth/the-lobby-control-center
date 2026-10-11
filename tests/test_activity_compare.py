@@ -3,6 +3,13 @@ from datetime import datetime,timezone,timedelta
 from activity_compare import compare_samples
 
 class ComparisonTests(unittest.TestCase):
+    def test_old_capped_samples_remain_a_data_gap(self):
+        now=datetime.now(timezone.utc)
+        p={'checked_at':(now-timedelta(days=1)).isoformat(),'messages_24h':4,'participants_24h':2,'coverage':'capped'}
+        earlier=dict(p,checked_at=(now-timedelta(days=2)).isoformat())
+        self.assertIn('Datenlücke',compare_samples('c',[earlier,p],now))
+        self.assertIn('Begrenzt/unbestätigt',compare_samples('c',[earlier,p],now))
+
     def test_distinct_snapshots_and_gaps(self):
         now=datetime.now(timezone.utc)
         p={'checked_at':now.isoformat(),'messages_24h':4,'participants_24h':2,'coverage':'window_reached'}

@@ -12,6 +12,13 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.14 — Activity System reliability: invalid counts and incomplete coverage take
+precedence over age; old capped samples remain explicitly limited. Activity history
+shows sanitized counts and per-row quality, refreshed as samples age. Same evidence
+foundation supports Dashboard and AI analysis. No data migration or live Discord
+mutation. Validated with 113 tests including Qt. Next: actionable missing-data
+guidance within Activity, followed by Lobby Night proposal refinement.
+
 Owner priority override for this iteration: 3 → 5 → 4 → 2 → 1
 (Community UI, Lobby Night, Activity, tasks, recommendation review).
 0.4.13 implements a small step in each: adaptive tab height; separated night

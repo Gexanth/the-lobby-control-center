@@ -1,3 +1,28 @@
+## 0.4.14 — Verlässliche Qualität im Activity System
+
+2026-10-11: refreshed main at 4094df44ef0aac4c41a700a11482731c2c8c88b1.
+Roadmap stage: Activity System; improves the existing Dashboard/AI evidence
+foundation without changing the authorized module order. Numeric validity and
+coverage now take priority over sample age. Old incomplete samples remain
+limited and cannot become directly comparable simply by aging. Invalid old
+counts are no longer classified as merely stale.
+
+The Activity history now shows per-measurement quality and uses the same sanitized
+evidence as Dashboard/AI. Invalid/future counts are withheld in the history and
+latest detail view. History cache includes quality transitions, refreshing the
+status after six hours without repeated table rebuilds while quality is unchanged.
+Stored records remain untouched, including legacy samples. Limited usable counts
+remain visible with their explicit coverage warning; they are not full statistics.
+No new data source, permission, dependency, credential, storage or starter change.
+Existing channel read permissions and connected app required for new captures.
+
+Validation: 113 tests passed locally with Qt and zero skips, including aged invalid
+and incomplete samples, time-dependent UI cache, preservation of stored data,
+and comparison gaps. Actual offline UI preview uses explicitly labeled test data.
+No live Discord mutation or paid AI request. Publication verification pending.
+Next: make the most useful missing-data action directly accessible from Activity,
+then refine Lobby Night proposals using only verified available data.
+
 ## 0.4.13 — Community-Abläufe und Empfehlungen prüfen
 
 Owner-directed iteration order on 2026-10-09: UI (3), Lobby Night (5), Activity

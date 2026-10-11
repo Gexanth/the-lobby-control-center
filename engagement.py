@@ -9,10 +9,10 @@ def activity_quality(sample,now=None):
     try:age=(now or utcnow())-parse_time(sample['checked_at'])
     except (ValueError,KeyError,TypeError):return 'invalid'
     if age<timedelta(0):return 'future'
-    if age>timedelta(hours=6):return 'stale'
     messages=sample.get('messages_24h');people=sample.get('participants_24h')
     if not (type(messages) is int and type(people) is int and 0<=people<=messages):return 'invalid'
     if sample.get('coverage') not in COMPLETE:return 'limited'
+    if age>timedelta(hours=6):return 'stale'
     return 'fresh'
 
 def engagement_ideas(sample,now=None):

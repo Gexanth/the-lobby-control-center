@@ -159,15 +159,37 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertIn('24h vor Erfassung',c.activity_metrics.text())
         self.assertIn('Aktuelle',c.activity_quality.text())
         c.engagement_draft.setPlainText('Mein bearbeiteter Entwurf');c.engagement_draft.document().setModified(True)
-        history_item=c.history_table.item(0,0)
-        with patch('engagement.utcnow',return_value=now+timedelta(hours=7)),patch.object(self.w,'run_discord_job',side_effect=AssertionError('No Discord request')):
+        self.assertEqual(c.history_table.item(0,5).text(),'Aktuell')
+        with patch('engagement.utcnow',return_value=now+timedelta(hours=7)),patch('community_ui.utcnow',return_value=now+timedelta(hours=7)),patch.object(self.w,'run_discord_job',side_effect=AssertionError('No Discord request')):
             c.timer.timeout.emit()
+            history_item=c.history_table.item(0,0)
+            c.timer.timeout.emit()
+            self.assertIs(c.history_table.item(0,0),history_item)
         self.assertIn('Veraltet',c.activity_quality.text());self.assertIn('sechs Stunden',c.engagement_basis.text())
         self.assertEqual(c.engagement_select.itemData(0)['key'],'activity')
         self.assertEqual(c.engagement_select.itemText(0),'Eine leichte Einstiegsfrage')
         self.assertEqual(c.engagement_draft.toPlainText(),'Mein bearbeiteter Entwurf')
-        self.assertIs(c.history_table.item(0,0),history_item)
+        self.assertEqual(c.history_table.item(0,5).text(),'Veraltet')
         self.assertEqual(c.store.guild(guild)['activity'][channel],sample)
+
+    def test_activity_history_withholds_invalid_future_and_preserves_storage(self):
+        from datetime import datetime,timezone,timedelta
+        from copy import deepcopy
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        now=datetime.now(timezone.utc)
+        p={'checked_at':(now-timedelta(days=1)).isoformat(),'messages_24h':9123,'participants_24h':9999,'sample_size':9123,'messages':9123,'coverage':'history_end'}
+        future=dict(p,checked_at=(now+timedelta(hours=1)).isoformat(),participants_24h=1)
+        limited=dict(p,messages_24h=4,participants_24h=2,sample_size=500,coverage='capped')
+        g=c.store.guild(guild);g['activity']={channel:p};g['activity_history']={channel:[limited,future,p]}
+        before=deepcopy(g);c.offline_server.setCurrentText(guild);c.open_offline()
+        self.assertIn('nicht verwendbar',c.activity_quality.text())
+        self.assertNotIn('9123',c.activity_metrics.text()+c.activity.toPlainText())
+        for row,quality in ((0,'Nicht verwendbar'),(1,'PC-Uhr prüfen')):
+            self.assertEqual(c.history_table.item(row,5).text(),quality)
+            for col in (1,2,3):self.assertEqual(c.history_table.item(row,col).text(),'—')
+        self.assertEqual(c.history_table.item(2,1).text(),'4')
+        self.assertEqual(c.history_table.item(2,5).text(),'Begrenzt/unbestätigt')
+        self.assertEqual(g,before)
 
     def test_unconfirmed_empty_activity_is_not_zero(self):
         from datetime import datetime,timezone

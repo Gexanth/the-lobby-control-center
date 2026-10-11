@@ -5,13 +5,13 @@ from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_sta
 from copy import deepcopy
 from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
-from engagement import engagement_ideas,activity_quality
-from evidence import activity_evidence,evidence_preview
+from engagement import engagement_ideas
+from evidence import activity_evidence,evidence_preview,evidence_point,QUALITY
 from adaptive_tabs import AdaptiveTabs
 from activity_compare import compare_samples
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
-from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields
+from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields,utcnow
 
 class CommunityPage(QWidget):
     def __init__(self,host):
@@ -49,7 +49,7 @@ class CommunityPage(QWidget):
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
         self.activity_comparison=QLabel();self.activity_comparison.setWordWrap(True);self.activity_comparison.setTextFormat(Qt.PlainText);a.addWidget(self.activity_comparison)
-        self.history_table=QTableWidget(0,5);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Gelesen','Abdeckung'])
+        self.history_table=QTableWidget(0,6);self.history_table.setHorizontalHeaderLabels(['Erfasst','Nachrichten¹','Personen¹','Gelesen','Abdeckung','Qualität'])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch);self.history_table.setEditTriggers(QTableWidget.NoEditTriggers);self.history_table.setAlternatingRowColors(True);a.addWidget(self.history_table)
         note=QLabel('¹ Messpunkte überlappen und dürfen nicht addiert werden. Es zählen nur zugängliche, noch vorhandene Nachrichten. Alte Messpunkte nutzen weiterhin die frühere 100-Nachrichten-Stichprobe.');note.setWordWrap(True);a.addWidget(note)
         n=page('Lobby Night')
@@ -245,7 +245,8 @@ class CommunityPage(QWidget):
         def local(value):
             try:return parse_time(value).astimezone().strftime('%d.%m. %H:%M') if value else 'unbekannt'
             except (ValueError,TypeError):return 'ungültiger Zeitpunkt'
-        quality=activity_quality(sample)
+        now=utcnow()
+        quality=evidence_point(channel,sample,now)['quality'] if sample else 'missing'
         self.activity_quality.setText({
             'missing':'Noch keine Messung. Für neue Daten diesen Server verbinden.',
             'fresh':'Aktuelle Erfassung · zugängliches 24h-Fenster oder Verlaufende erreicht. Keine vollständige Serverstatistik.',
@@ -258,24 +259,30 @@ class CommunityPage(QWidget):
             self.activity_metrics.setText(f"24h vor Erfassung am {local(sample.get('checked_at'))} · {sample.get('messages_24h','—')} Nachrichten · {sample.get('participants_24h','—')} Personen")
             if quality in ('future','invalid'):self.activity_metrics.setText('Keine belastbaren aktuellen 24h-Werte · neu erfassen.')
             text=f"#{self.channel.currentText()} · zuletzt geprüft {local(sample.get('checked_at'))}\n{sample.get('messages','—')} menschliche Nachrichten in {sample.get('sample_size','—')} gelesenen Nachrichten\nErfasster Zeitraum: {local(sample.get('oldest'))} – {local(sample.get('latest'))}"
+            if quality in ('future','invalid'):text=f"#{self.channel.currentText()} · zuletzt geprüft {local(sample.get('checked_at'))}\nMesswerte ausgeblendet. Gespeicherte Daten bleiben unverändert; bitte neu erfassen."
             coverage=sample.get('coverage')
             if coverage in ('window_reached','history_end'):text+='\nZeitfenster beziehungsweise zugängliches Verlaufende erreicht.'
             elif coverage=='empty_or_no_history_access':
                 text+='\nKeine weiteren Nachrichten zurückgegeben. Kanal kann leer sein oder dem Bot fehlt Nachrichtenverlauf lesen. Abdeckung unbestätigt.'
-                if sample['sample_size']==0:self.activity_metrics.setText('Keine belastbaren Aktivitätswerte · Verlaufzugriff prüfen.')
+                if sample.get('sample_size')==0:self.activity_metrics.setText('Keine belastbaren Aktivitätswerte · Verlaufzugriff prüfen.')
             elif sample.get('limit_reached'):text+='\nAbrufgrenze erreicht: weitere Nachrichten können fehlen.'
         else:
             self.activity_metrics.setText('Noch keine Daten für diesen Kanal.');text='Wähle einen Kanal und klicke auf Erfassen. Bestehende Stichproben aus älteren Versionen bleiben erhalten; 24h-Werte kommen mit der nächsten Erfassung.'
         if self.activity.toPlainText()!=text:self.activity.setPlainText(text)
         rows=list(reversed(self.store.history(self.guild_id,channel))) if self.guild_id and channel else []
-        self.activity_comparison.setText(compare_samples(channel,list(reversed(rows))))
-        signature=(self.guild_id,channel,repr(rows))
+        self.activity_comparison.setText(compare_samples(channel,list(reversed(rows)),now))
+        points=[evidence_point(channel,row,now) for row in rows]
+        signature=(self.guild_id,channel,repr(rows),tuple(p['quality'] for p in points))
         if getattr(self,'_history_signature',None)==signature:return
         self.history_table.setUpdatesEnabled(False)
         try:
             self.history_table.setRowCount(len(rows))
-            for i,row in enumerate(rows):
-                for j,value in enumerate([local(row['checked_at']),row.get('messages_24h','—'),row.get('participants_24h','—'),row['sample_size'],{'window_reached':'24h erreicht','history_end':'Verlaufende','empty_or_no_history_access':'Unbestätigt','capped':'500-Grenze'}.get(row.get('coverage'),'Alte Stichprobe')]):self.history_table.setItem(i,j,QTableWidgetItem(str(value)))
+            for i,(row,point) in enumerate(zip(rows,points)):
+                usable=point['quality'] not in ('future','invalid','missing')
+                read=row.get('sample_size')
+                read=read if usable and type(read) is int and read>=0 else '—'
+                values=[local(row.get('checked_at')),point['messages_24h'],point['participants_24h'],read,{'window_reached':'24h erreicht','history_end':'Verlaufende','empty_or_no_history_access':'Unbestätigt','capped':'500-Grenze'}.get(row.get('coverage'),'Alte Stichprobe'),QUALITY[point['quality']]]
+                for j,value in enumerate(values):self.history_table.setItem(i,j,QTableWidgetItem('—' if value is None else str(value)))
             self._history_signature=signature
         finally:self.history_table.setUpdatesEnabled(True)
 

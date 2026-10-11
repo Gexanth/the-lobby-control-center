@@ -30,3 +30,11 @@ class EngagementTests(unittest.TestCase):
             sample=self.sample(people,messages)
             self.assertEqual(activity_quality(sample,self.now),'invalid')
         self.assertEqual(activity_quality(self.sample(0,0,'empty_or_no_history_access'),self.now),'limited')
+
+    def test_old_samples_keep_invalid_and_incomplete_quality(self):
+        for coverage in ('capped','empty_or_no_history_access',None):
+            self.assertEqual(activity_quality(self.sample(0,0,coverage,age=24),self.now),'limited')
+        for messages,people in ((True,1),(1,True),(-1,0),(1,2),('bad',0)):
+            sample=self.sample(people,messages,age=24)
+            self.assertEqual(activity_quality(sample,self.now),'invalid')
+            self.assertIn('nicht verwendbar',engagement_ideas(sample,self.now)['basis'])
