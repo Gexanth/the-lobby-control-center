@@ -19,7 +19,16 @@ Existing channel read permissions and connected app required for new captures.
 Validation: 113 tests passed locally with Qt and zero skips, including aged invalid
 and incomplete samples, time-dependent UI cache, preservation of stored data,
 and comparison gaps. Actual offline UI preview uses explicitly labeled test data.
-No live Discord mutation or paid AI request. Publication verification pending.
+No live Discord mutation or paid AI request. Publication verified 2026-10-11:
+workflow 38145278529 / job 114487203249 succeeded with all 113 tests, zero skips.
+Compile and update build passed locally and in CI. Latest v0.4.14 targets
+d5c4d61e403c7dd1db1388bede800a2809794895. Uploaded release.json (288 bytes)
+and ZIP (119584 bytes); GitHub-reported ZIP SHA256:
+163a61d61bedde3cf8d9de619f3fdd68634761d69a6beaa4321c0804068adc59.
+Release assets and target verified through GitHub metadata; direct manifest-content
+fetch is unsupported by the available connector (404), so no client installation
+or live download is claimed.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.14
 Next: make the most useful missing-data action directly accessible from Activity,
 then refine Lobby Night proposals using only verified available data.
 
