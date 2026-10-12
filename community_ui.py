@@ -33,7 +33,7 @@ class CommunityPage(QWidget):
         self.tabs=AdaptiveTabs();layout.addWidget(self.tabs)
         from matchmaking_ui import MatchmakingPanel
         self.matchmaking_panel=MatchmakingPanel(self)
-        self.tabs.addTab(self.matchmaking_panel,'Mitspielersuche')
+        QTimer.singleShot(0,lambda:self.tabs.addTab(self.matchmaking_panel,'Mitspielersuche'))
         def page(name):
             w=QWidget();l=QVBoxLayout(w);self.tabs.addTab(w,name);return l
         a=page('Activity System')
