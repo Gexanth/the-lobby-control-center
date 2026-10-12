@@ -12,6 +12,13 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.15 — Activity System guidance: each selected channel now exposes one safe,
+context-aware next step for missing, stale, capped, invalid, future or usable data.
+Actions remain user-triggered and do not silently call Discord. The 500-message
+limit only permits a general prompt or quieter-channel suggestion, never an
+inactivity claim. Tested with 115 tests including Qt. Next: Lobby Night proposal
+collection and review; still no Discord scheduled-event creation.
+
 0.4.14 — Activity System reliability: invalid counts and incomplete coverage take
 precedence over age; old capped samples remain explicitly limited. Activity history
 shows sanitized counts and per-row quality, refreshed as samples age. Same evidence

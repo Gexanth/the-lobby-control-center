@@ -5,7 +5,7 @@ from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_sta
 from copy import deepcopy
 from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
-from engagement import engagement_ideas
+from engagement import engagement_ideas,activity_next_step
 from evidence import activity_evidence,evidence_preview,evidence_point,QUALITY
 from adaptive_tabs import AdaptiveTabs
 from activity_compare import compare_samples
@@ -45,7 +45,8 @@ class CommunityPage(QWidget):
         self.activity_timer=QTimer(self);self.activity_timer.setInterval(15*60*1000);self.activity_timer.timeout.connect(lambda:self.sample() if self.auto_sample.isChecked() else None);self.activity_timer.start()
         self.activity_metrics=QLabel('Noch keine Daten für diesen Kanal.');self.activity_metrics.setWordWrap(True);a.addWidget(self.activity_metrics)
         self.activity_quality=QLabel();self.activity_quality.setWordWrap(True);self.activity_quality.setTextFormat(Qt.PlainText);a.addWidget(self.activity_quality)
-        b=QPushButton('Passenden Mitmachimpuls ansehen');b.clicked.connect(lambda:self.tabs.setCurrentIndex(4));a.addWidget(b)
+        self.activity_next=QLabel();self.activity_next.setWordWrap(True);self.activity_next.setTextFormat(Qt.PlainText);a.addWidget(self.activity_next)
+        self.activity_next_button=QPushButton();self.activity_next_button.clicked.connect(self.run_activity_next_step);a.addWidget(self.activity_next_button)
         self.activity=QTextEdit();self.activity.setReadOnly(True);self.activity.setMaximumHeight(130);a.addWidget(self.activity)
         title=QLabel('Verlauf · maximal 96 Messpunkte pro Kanal');a.addWidget(title)
         self.activity_comparison=QLabel();self.activity_comparison.setWordWrap(True);self.activity_comparison.setTextFormat(Qt.PlainText);a.addWidget(self.activity_comparison)
@@ -189,6 +190,7 @@ class CommunityPage(QWidget):
         connected=bool(client and client.guild==self.guild_id)
         self.scan.setEnabled(connected and self.host.discord_worker is None and self.channel.currentData() is not None)
         self.auto_sample.setEnabled(connected and self.channel.currentData() is not None)
+        if hasattr(self,'activity_next_button'):self.refresh_activity_next_step()
         n=self.chosen_night();state=n.get('poll_delivery',{}).get('state') if n else None
         planned=bool(n and n.get('status')=='geplant' and parse_time(n['when'])>datetime.now(timezone.utc))
         self.poll_publish.setEnabled(connected and self.host.discord_worker is None and self.poll_channel.currentData() is not None and planned and state not in ('sent','sending','uncertain','scheduled'))
@@ -238,6 +240,20 @@ class CommunityPage(QWidget):
         if hasattr(self,'engagement_select'):self.refresh_engagement()
     def refresh_activity_feedback(self):
         self.refresh_activity();self.refresh_engagement()
+    def refresh_activity_next_step(self,sample=None,now=None):
+        channel=self.channel.currentData();client=self.host.discord_client
+        connected=bool(client and client.guild==self.guild_id)
+        if sample is None and self.guild_id and channel:sample=self.store.guild(self.guild_id).get('activity',{}).get(channel)
+        step=activity_next_step(sample,connected,channel is not None,now)
+        self._activity_next_action=step['action']
+        self.activity_next.setText('Nächster Schritt · '+step['title']+'\n'+step['detail'])
+        self.activity_next_button.setText(step['button'])
+        self.activity_next_button.setEnabled(bool(step['action']) and self.host.discord_worker is None)
+    def run_activity_next_step(self):
+        action=getattr(self,'_activity_next_action',None)
+        if action=='scan':self.sample()
+        elif action=='connect':self.open_connection()
+        elif action=='impulse':self.tabs.setCurrentIndex(4)
     def refresh_activity(self):
         channel=self.channel.currentData()
         g=self.store.guild(self.guild_id) if self.guild_id else {}
@@ -247,6 +263,7 @@ class CommunityPage(QWidget):
             except (ValueError,TypeError):return 'ungültiger Zeitpunkt'
         now=utcnow()
         quality=evidence_point(channel,sample,now)['quality'] if sample else 'missing'
+        self.refresh_activity_next_step(sample,now)
         self.activity_quality.setText({
             'missing':'Noch keine Messung. Für neue Daten diesen Server verbinden.',
             'fresh':'Aktuelle Erfassung · zugängliches 24h-Fenster oder Verlaufende erreicht. Keine vollständige Serverstatistik.',

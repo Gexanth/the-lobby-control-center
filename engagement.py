@@ -15,6 +15,38 @@ def activity_quality(sample,now=None):
     if age>timedelta(hours=6):return 'stale'
     return 'fresh'
 
+def activity_next_step(sample,connected=False,channel_selected=True,now=None):
+    """Return one explicit, non-destructive next step for the Activity UI."""
+    quality=activity_quality(sample,now)
+    if not channel_selected:
+        return {'quality':quality,'title':'Kein Textkanal ausgewählt',
+                'detail':'Discord verbinden und einen zugänglichen Textkanal auswählen.',
+                'action':'connect' if not connected else None,
+                'button':'Discord-Verbindung öffnen' if not connected else 'Kein Textkanal verfügbar'}
+    if quality=='fresh':
+        return {'quality':quality,'title':'Datengrundlage verwendbar',
+                'detail':'Die Messung kann für einen begründeten Mitmachimpuls genutzt werden.',
+                'action':'impulse','button':'Mitmachimpuls aus aktuellen Daten öffnen'}
+    coverage=sample.get('coverage') if isinstance(sample,dict) else None
+    if quality=='limited' and coverage=='capped':
+        return {'quality':quality,'title':'500-Nachrichten-Grenze erreicht',
+                'detail':'Weitere Nachrichten können fehlen. Nicht als Inaktivität deuten; nur einen allgemeinen Impuls verwenden oder einen ruhigeren Kanal messen.',
+                'action':'impulse','button':'Allgemeinen Mitmachimpuls öffnen'}
+    details={
+        'missing':'Für diesen Kanal gibt es noch keine Aktivitätsmessung.',
+        'stale':'Die letzte Messung ist älter als sechs Stunden und sollte vor einer Entscheidung aktualisiert werden.',
+        'future':'Zuerst die PC-Uhr und Zeitzone prüfen, danach neu erfassen.',
+        'invalid':'Die gespeicherten Werte bleiben erhalten, sind aber nicht verwendbar. Neu erfassen.',
+        'limited':'„Kanal ansehen“ und „Nachrichtenverlauf anzeigen“ prüfen; danach erneut erfassen.'}
+    titles={'missing':'Messung fehlt','stale':'Messung aktualisieren','future':'PC-Uhr prüfen',
+            'invalid':'Messung ersetzen','limited':'Verlaufzugriff prüfen'}
+    if connected:
+        return {'quality':quality,'title':titles[quality],'detail':details[quality],
+                'action':'scan','button':'Jetzt erneut erfassen' if sample else 'Jetzt Aktivität erfassen'}
+    return {'quality':quality,'title':titles[quality],
+            'detail':details[quality]+' Discord verbinden, um die Messung auszuführen.',
+            'action':'connect','button':'Discord-Verbindung öffnen'}
+
 def engagement_ideas(sample,now=None):
     now=now or utcnow()
     reason='Noch keine aktuelle, bestätigte 24h-Erfassung. Die folgenden Texte sind allgemeine Ideen.'

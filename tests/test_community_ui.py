@@ -148,6 +148,19 @@ class CommunityAccessTests(unittest.TestCase):
         for i in range(c.tabs.count()):c.tabs.setCurrentIndex(i);self.app.processEvents();self.assertEqual(c.tabs.currentIndex(),i)
         c.open_connection();self.assertEqual(self.w.stack.currentIndex(),2)
 
+    def test_activity_next_step_routes_without_implicit_discord_write(self):
+        from datetime import datetime,timezone,timedelta
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        old={'channel_id':channel,'checked_at':(datetime.now(timezone.utc)-timedelta(hours=7)).isoformat(),
+             'messages_24h':4,'participants_24h':2,'messages':4,'sample_size':4,'coverage':'history_end'}
+        c.store.record_activity(guild,old);c.offline_server.setCurrentText(guild);c.open_offline()
+        self.assertIn('Messung aktualisieren',c.activity_next.text())
+        self.assertEqual(c.activity_next_button.text(),'Discord-Verbindung öffnen')
+        c.activity_next_button.click();self.assertEqual(self.w.stack.currentIndex(),2)
+        c.tabs.setCurrentIndex(0);fresh=dict(old,checked_at=datetime.now(timezone.utc).isoformat());c.store.guild(guild)['activity'][channel]=fresh;c.refresh_activity()
+        self.assertIn('Datengrundlage verwendbar',c.activity_next.text())
+        c.activity_next_button.click();self.assertEqual(c.tabs.currentIndex(),4)
+
     def test_activity_ages_without_requests_or_losing_draft(self):
         from datetime import datetime,timezone,timedelta
         c=self.w.community;guild='930828728966217728';channel='123456789012345678'

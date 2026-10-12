@@ -1,3 +1,27 @@
+## 0.4.15 — Direkter nächster Schritt im Activity System
+
+2026-10-12: refreshed main at a39249daecb3a7994c50d035acc281db1de3d344.
+Roadmap stage: Activity System. The Activity view now translates the selected
+channel's evidence quality into one explicit next step. Depending on actual local
+state it opens the Discord connection, starts a user-clicked capture, points to
+the PC clock or channel-history permission, or opens an appropriate participation
+prompt. A 500-message cap leads only to a general prompt or a quieter-channel
+suggestion; it is never presented as confirmed inactivity.
+
+The action is recomputed after channel, connection and age changes. It is disabled
+while another Discord job is running and never runs automatically. Fresh evidence
+can open the existing explainable prompt workflow; missing, stale, future, invalid
+and incomplete evidence retain their existing safeguards. No live Discord mutation,
+new data source, storage migration, credential, dependency or starter change.
+New captures still require a connected desktop app plus “View Channel” and “Read
+Message History” in the selected channel.
+
+Validation: 115 tests passed locally with Qt, zero skips. Added deterministic state
+routing and actual UI navigation coverage; compile and update package validation
+pending. No paid AI request or live Discord operation used. Publication pending.
+Next: refine Lobby Night proposal collection on this evidence foundation without
+creating a Discord scheduled event.
+
 ## 0.4.14 — Verlässliche Qualität im Activity System
 
 2026-10-11: refreshed main at 4094df44ef0aac4c41a700a11482731c2c8c88b1.

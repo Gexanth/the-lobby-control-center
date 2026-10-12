@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime,timezone,timedelta
-from engagement import engagement_ideas,activity_quality
+from engagement import engagement_ideas,activity_quality,activity_next_step
 class EngagementTests(unittest.TestCase):
     def sample(self,people=2,messages=7,coverage='window_reached',age=0):
         return {'checked_at':(self.now-timedelta(hours=age)).isoformat(),'messages_24h':messages,'participants_24h':people,'coverage':coverage}
@@ -38,3 +38,19 @@ class EngagementTests(unittest.TestCase):
             sample=self.sample(people,messages,age=24)
             self.assertEqual(activity_quality(sample,self.now),'invalid')
             self.assertIn('nicht verwendbar',engagement_ideas(sample,self.now)['basis'])
+
+    def test_activity_next_step_is_specific_and_non_destructive(self):
+        cases=[
+            (None,False,True,'connect','Messung fehlt'),
+            (None,True,True,'scan','Messung fehlt'),
+            (self.sample(age=7),True,True,'scan','aktualisieren'),
+            (self.sample(coverage='empty_or_no_history_access'),True,True,'scan','Verlaufzugriff'),
+            (self.sample(coverage='capped'),True,True,'impulse','500-Nachrichten-Grenze'),
+            (self.sample(),True,True,'impulse','verwendbar'),
+            (None,False,False,'connect','Textkanal')]
+        for sample,connected,selected,action,title in cases:
+            with self.subTest(action=action,title=title):
+                result=activity_next_step(sample,connected,selected,self.now)
+                self.assertEqual(result['action'],action);self.assertIn(title,result['title'])
+                self.assertNotIn('token',repr(result).lower())
+        self.assertIsNone(activity_next_step(None,True,False,self.now)['action'])
