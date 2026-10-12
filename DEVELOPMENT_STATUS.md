@@ -16,9 +16,14 @@ new data source, storage migration, credential, dependency or starter change.
 New captures still require a connected desktop app plus “View Channel” and “Read
 Message History” in the selected channel.
 
-Validation: 115 tests passed locally with Qt, zero skips. Added deterministic state
-routing and actual UI navigation coverage; compile and update package validation
-pending. No paid AI request or live Discord operation used. Publication pending.
+Validation: 115 tests passed locally and in CI with Qt, zero skips. Added
+deterministic state routing and actual UI navigation coverage; compile and update
+package validation passed. No paid AI request or live Discord operation used.
+Publication verified 2026-10-12: workflow 38256703421 / job 114836520700 succeeded;
+latest v0.4.15 targets 79a32828d99aeb1df07ef5f34a384a0df66a11e4.
+Uploaded release.json (288 bytes) and ZIP (121326 bytes); GitHub-reported ZIP
+SHA256 a7267671bccc0c08af7923cd113139d2ba8bca2bc0a6c80c217be7aa7293c496.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.15
 Next: refine Lobby Night proposal collection on this evidence foundation without
 creating a Discord scheduled event.
 
