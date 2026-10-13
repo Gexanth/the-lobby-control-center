@@ -17,7 +17,14 @@ An actual Qt screenshot uses clearly labeled sample input, not a live event.
 Validation: 123 tests passed locally with Qt and zero skips, including shared
 count/length/duplicate boundaries, original line numbers, reactive UI, bounded
 warnings and unchanged unsaved input/store. Compile and source package checks passed.
-Publication pending verification. Next: make the saved proposal selection clearer
+Publication verified 2026-10-13: workflow 38450396463 / job 115479499864 passed
+123 tests with zero skips. Latest v0.4.17 targets
+fa2e17e29b6d5d21e0fa24ac7865f4da57f301b6. Published release.json (288 bytes)
+and ZIP (126598 bytes) downloaded; ZIP integrity, changed source files and manifest
+SHA256 verified: 5e6612a992e3c494705eb57b8735ff429a7e0c81cd4d79afd0403dca113cc4bc.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.17
+Installation on the owner's Windows PC has not been tested in this run.
+Next: make the saved proposal selection clearer
 when proceeding to voting, retaining the explicit publication review.
 
 ## 0.4.16 — Abgelaufene Mitspielersuche blockiert keine neuen Gesuche
