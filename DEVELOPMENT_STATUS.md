@@ -19,7 +19,13 @@ credential or starter change. No live Discord event or message created.
 Validation: 120 tests passed locally with Qt, zero skips. Three new regressions
 cover expiry boundaries and persisted history, owner/server/status quota isolation,
 and memory/disk preservation on failed saves after expiry. Syntax compilation and
-source update build passed. Release workflow and published artifacts pending verification.
+source update build passed. Release workflow 38408162697 / job 115333151234
+succeeded with 120 tests and zero skips. Published v0.4.16 targets commit
+cd68034a106d587e93aea54730eda2329c779d90; verified latest release and uploaded
+release.json (288 bytes) and source ZIP (125382 bytes) on 2026-10-13.
+GitHub ZIP SHA256: e7bba97ccdc54f0da08fa092a4c22d40cea17feb4e4341e5dabd66ac705d3bf9.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.16
+Installation on the owner's Windows PC has not been tested in this run.
 Next: Lobby Night proposal collection and review, without Discord event creation.
 
 ## 0.4.15 — Direkter nächster Schritt im Activity System
