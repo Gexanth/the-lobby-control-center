@@ -25,6 +25,26 @@ class CommunityAccessTests(unittest.TestCase):
     def tearDown(self):
         self.w.close();self.app.processEvents()
         self.read_patch.stop();self.login_patch.stop();self.store_patch.stop();self.task_patch.stop();self.tmp.cleanup()
+    def test_night_options_review_updates_without_mutating_draft_or_store(self):
+        import copy
+        from PySide6.QtCore import Qt
+        c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        before=copy.deepcopy(c.store.data)
+        text='Valorant\n\nVALORANT\n'+'x'*56
+        c.options.setPlainText(text)
+        self.assertIn('3/10',c.options_review.text())
+        self.assertIn('Zeile 3: doppelt zu Zeile 1',c.options_review.text())
+        self.assertIn('Zeile 4: 56 Zeichen',c.options_review.text())
+        self.assertEqual(c.options.toPlainText(),text)
+        self.assertEqual(c.store.data,before)
+        self.assertEqual(c.options_review.textFormat(),Qt.PlainText)
+        c.options.setPlainText('Valorant\nMinecraft')
+        self.assertIn('Vorschläge geprüft',c.options_review.text())
+        self.assertIn('Bereit zum lokalen Speichern',c.night_readiness.text())
+        c.options.setPlainText('\n'.join(['Game']*15))
+        self.assertIn('Weitere',c.options_review.text())
+        self.assertLessEqual(len(c.options_review.text().splitlines()),5)
+
     def test_analysis_preview_offline_refresh_and_server_isolation(self):
         from datetime import datetime,timezone
         c=self.w.community
@@ -307,7 +327,7 @@ class CommunityAccessTests(unittest.TestCase):
         c=self.w.community;guild='930828728966217728'
         c.offline_server.setCurrentText(guild);c.open_offline()
         c.night_title.setText('Community Night');c.night_time.setText((datetime.now()+timedelta(days=2)).strftime('%Y-%m-%d 20:00'));c.options.setPlainText('Minecraft\nminecraft')
-        self.assertIn('Doppelte',c.night_readiness.text())
+        self.assertIn('doppelt zu Zeile',c.night_readiness.text())
         c.options.setPlainText('Minecraft\nParty Animals\nValorant');self.assertIn('3 eindeutige Vorschläge',c.night_readiness.text())
         c.save_night();self.assertEqual(c.nights.count(),1);saved=c.chosen_night();saved_id=saved['id']
         self.assertIn('Dies ist kein Discord-Event',c.night_review.text());self.assertEqual(c.night_save.text(),'Änderungen am Entwurf speichern')

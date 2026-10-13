@@ -11,7 +11,7 @@ from adaptive_tabs import AdaptiveTabs
 from activity_compare import compare_samples
 from updates import DATA,read_json,UpdateError
 from lobby import snowflake
-from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields,utcnow
+from community import CommunityStore,CommunityError,activity_sample,parse_time,night_fields,review_night_options,utcnow
 
 class CommunityPage(QWidget):
     def __init__(self,host):
@@ -64,6 +64,7 @@ class CommunityPage(QWidget):
         self.night_title=QLineEdit('Lobby Night');n.addWidget(self.night_title)
         self.night_time=QLineEdit((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.night_time.setPlaceholderText('Lokale PC-Zeit: JJJJ-MM-TT HH:MM');n.addWidget(self.night_time)
         self.options=QTextEdit();self.options.setPlaceholderText('Ein Spielvorschlag pro Zeile (2–10)');self.options.setMaximumHeight(100);n.addWidget(self.options)
+        self.options_review=QLabel();self.options_review.setWordWrap(True);self.options_review.setTextFormat(Qt.PlainText);self.options_review.setAccessibleName('Prüfung der Spielvorschläge');n.addWidget(self.options_review)
         self.night_readiness=QLabel();self.night_readiness.setWordWrap(True);self.night_readiness.setTextFormat(Qt.PlainText);n.addWidget(self.night_readiness)
         row=QHBoxLayout();self.night_save=QPushButton('Termin und Vorschläge speichern');self.night_save.clicked.connect(self.save_night);row.addWidget(self.night_save)
         self.night_new=QPushButton('Neuen Entwurf beginnen');self.night_new.clicked.connect(self.new_night);row.addWidget(self.night_new);n.addLayout(row)
@@ -360,6 +361,11 @@ class CommunityPage(QWidget):
         self.host.run_discord_job(lambda:client.activity_window(channel),done,failed)
     def refresh_night_readiness(self,*_):
         if not hasattr(self,'night_readiness'):return
+        review=review_night_options(self.options.toPlainText());issues=review['issues']
+        summary=f"Spielvorschläge: {len(review['options'])}/10 · {review['unique']} eindeutig · maximal 55 Zeichen je Vorschlag."
+        details='\n'.join(issues[:3]) if issues else 'Vorschläge geprüft. Reihenfolge bleibt erhalten; Leerzeilen werden beim Speichern ignoriert.'
+        if len(issues)>3:details+=f'\nWeitere {len(issues)-3} Hinweise – zuerst die genannten Zeilen korrigieren.'
+        self.options_review.setText(summary+'\n'+details)
         try:
             _,due,options=night_fields(self.night_title.text(),self.night_time.text(),self.options.toPlainText())
             self.night_readiness.setText(f'Bereit zum lokalen Speichern · {len(options)} eindeutige Vorschläge · Termin {due.astimezone().strftime("%d.%m.%Y %H:%M")}. Vor Discord-Veröffentlichung folgt eine weitere Vorschau.')

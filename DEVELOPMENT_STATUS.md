@@ -1,3 +1,25 @@
+## 0.4.17 — Spielvorschläge direkt im Lobby-Night-Planer prüfen
+
+2026-10-13: refreshed main at c0c52a41b464a6564798302eceadbd2e248eba64.
+Roadmap stage: Lobby Night automation. Local proposal input now shows total and
+unique counts, duplicate line references and overlength line numbers while typing.
+Validation uses one shared review function for UI and saving (2–10 proposals,
+55 characters each, case-insensitive duplicates). Line numbers include blank lines;
+input and ordering are never silently changed. At most three issues are shown,
+with an explicit remaining count, to keep long invalid drafts manageable.
+
+Assumption: this iteration reviews manually collected proposals; it does not import
+Discord messages or invent activity data. Existing save/delivery locks and publication
+review remain in place. No event creation, live Discord test, additional permission,
+dependency, storage migration, credential or starter change. Review works offline.
+An actual Qt screenshot uses clearly labeled sample input, not a live event.
+
+Validation: 123 tests passed locally with Qt and zero skips, including shared
+count/length/duplicate boundaries, original line numbers, reactive UI, bounded
+warnings and unchanged unsaved input/store. Compile and source package checks passed.
+Publication pending verification. Next: make the saved proposal selection clearer
+when proceeding to voting, retaining the explicit publication review.
+
 ## 0.4.16 — Abgelaufene Mitspielersuche blockiert keine neuen Gesuche
 
 2026-10-13: refreshed and inspected main at 3dde2335384cfc24df352ab8cf289af77741cd0a,

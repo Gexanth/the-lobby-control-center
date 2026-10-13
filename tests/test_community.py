@@ -60,6 +60,28 @@ class HistoryTests(unittest.TestCase):
             self.assertEqual(json.dumps(store.data,sort_keys=True),before)
 
 class LobbyNightDraftTests(unittest.TestCase):
+    def test_option_review_reports_original_lines_without_changing_input(self):
+        from community import review_night_options
+        text='  Valorant  \n\nvalorant\n'+'B'*56
+        review=review_night_options(text)
+        self.assertEqual(review['options'],['Valorant','valorant','B'*56])
+        self.assertEqual(review['unique'],2)
+        self.assertEqual(review['issues'],['Zeile 3: doppelt zu Zeile 1.','Zeile 4: 56 Zeichen statt höchstens 55.'])
+        future=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
+        with self.assertRaisesRegex(CommunityError,'Zeile 3'):
+            night_fields('Night',future,text)
+    def test_review_and_save_share_count_length_and_duplicate_limits(self):
+        from community import review_night_options
+        future=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
+        for text in ['', 'A', '\n'.join(str(i) for i in range(11)), 'A\na', 'A\n'+'B'*56]:
+            with self.subTest(text=text):
+                self.assertTrue(review_night_options(text)['issues'])
+                with self.assertRaises(CommunityError):night_fields('Night',future,text)
+        text='\n'.join(['B'*55]+[str(i) for i in range(9)])
+        review=review_night_options(text)
+        self.assertEqual(review['issues'],[])
+        self.assertEqual(night_fields('Night',future,text)[2],review['options'])
+
     def test_early_poll_limits_and_duplicate_validation(self):
         future=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat()
         self.assertEqual(night_fields(' Night ',future,' Game A \nGame B')[2],['Game A','Game B'])

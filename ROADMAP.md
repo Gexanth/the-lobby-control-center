@@ -12,6 +12,13 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.17 — Lobby Night automation: manually collected proposals are reviewed while
+typing, with total/unique counts and original line references for duplicates or
+overlength entries. UI and save validation share rules; no silent removal or reorder.
+Three visible issues plus remaining count keep feedback bounded. Offline, no new
+permissions or Discord event creation. 123 tests passed with Qt. Next: clearer saved
+proposal selection when moving to the voting step; publication stays explicit.
+
 0.4.16 — Activity System / participation foundation: fixed the newly merged local
 matchmaking quota so expired listings no longer prevent new ones. Stored history,
 per-server/member separation and existing full/closed semantics remain unchanged.

@@ -12,17 +12,29 @@ def parse_time(value):
     except (ValueError,TypeError,AttributeError):raise CommunityError('Datum als JJJJ-MM-TT HH:MM eingeben.') from None
     return d.astimezone(timezone.utc)
 
+def review_night_options(suggestions):
+    """Review local input without changing it; line numbers include blank lines."""
+    rows=[];seen={};issues=[]
+    for line,text in enumerate(suggestions.split('\n') if isinstance(suggestions,str) else [],1):
+        text=text.strip()
+        if not text:continue
+        rows.append(text)
+        if len(text)>55:issues.append(f'Zeile {line}: {len(text)} Zeichen statt höchstens 55.')
+        key=text.casefold()
+        if key in seen:issues.append(f'Zeile {line}: doppelt zu Zeile {seen[key]}.')
+        else:seen[key]=line
+    if not 2<=len(rows)<=10:issues.insert(0,'2–10 Spielvorschläge eingeben, einen pro Zeile.')
+    return {'options':rows,'unique':len(seen),'issues':issues}
+
 def night_fields(title,when,suggestions,now=None):
     """Validate a local Lobby Night draft against the later Discord poll limits."""
     title=title.strip() if isinstance(title,str) else ''
     if not 1<=len(title)<=120:raise CommunityError('Titel mit 1–120 Zeichen eingeben.')
     due=parse_time(when);now=now or utcnow()
     if due<=now:raise CommunityError('Der Termin muss in der Zukunft liegen.')
-    options=[x.strip() for x in suggestions.split('\n') if x.strip()] if isinstance(suggestions,str) else []
-    if not 2<=len(options)<=10:raise CommunityError('2–10 Spielvorschläge eingeben, einen pro Zeile.')
-    if any(len(x)>55 for x in options):raise CommunityError('Jeder Spielvorschlag darf höchstens 55 Zeichen enthalten.')
-    if len({x.casefold() for x in options})!=len(options):raise CommunityError('Doppelte Spielvorschläge entfernen.')
-    return title,due,options
+    review=review_night_options(suggestions)
+    if review['issues']:raise CommunityError(review['issues'][0])
+    return title,due,review['options']
 
 def activity_sample(messages,channel_id,now=None):
     now=now or utcnow();people=set();recent_people=set();times=[];count=0;recent=0
