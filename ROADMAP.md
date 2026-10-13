@@ -12,6 +12,15 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.16 — Activity System / participation foundation: fixed the newly merged local
+matchmaking quota so expired listings no longer prevent new ones. Stored history,
+per-server/member separation and existing full/closed semantics remain unchanged.
+The start instant is still active; expiry begins after it. Local manual records
+are not measured Discord activity or verified membership. No bot permissions or
+running connection required for this local workflow. 120 local tests passed with
+Qt and zero skips. Next: resume Lobby Night proposal collection and review;
+the authorized module order above remains unchanged, no Discord event creation.
+
 0.4.15 — Activity System guidance: each selected channel now exposes one safe,
 context-aware next step for missing, stale, capped, invalid, future or usable data.
 Actions remain user-triggered and do not silently call Discord. The 500-message

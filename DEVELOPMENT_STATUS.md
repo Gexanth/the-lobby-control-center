@@ -1,3 +1,27 @@
+## 0.4.16 — Abgelaufene Mitspielersuche blockiert keine neuen Gesuche
+
+2026-10-13: refreshed and inspected main at 3dde2335384cfc24df352ab8cf289af77741cd0a,
+including the new local matchmaking module and its CI checks. Roadmap stage:
+Activity System / participation foundation. Prioritize this reliability fix before
+further Lobby Night proposal collection. Expired open listings previously counted
+toward the three-open-listing limit forever despite disappearing from active_listings.
+Creation now checks start time against one captured timestamp, consistently with
+the active list and join rule. The exact start instant remains active; only past
+starts stop counting. Historical records are neither deleted nor rewritten.
+
+Assumptions: retain the existing quota semantics (per owner and server, open only;
+full/closed excluded), local manual member-ID entry and no Discord publication.
+This release also includes the already merged matchmaking editor and backend.
+These are local records, not verified Discord membership or live server activity.
+No additional bot permissions, network source, dependency, storage migration,
+credential or starter change. No live Discord event or message created.
+
+Validation: 120 tests passed locally with Qt, zero skips. Three new regressions
+cover expiry boundaries and persisted history, owner/server/status quota isolation,
+and memory/disk preservation on failed saves after expiry. Syntax compilation and
+source update build passed. Release workflow and published artifacts pending verification.
+Next: Lobby Night proposal collection and review, without Discord event creation.
+
 ## 0.4.15 — Direkter nächster Schritt im Activity System
 
 2026-10-12: refreshed main at a39249daecb3a7994c50d035acc281db1de3d344.

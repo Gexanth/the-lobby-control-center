@@ -37,11 +37,14 @@ def _change(store, guild, operation):
 def create_listing(store, guild, owner_id, game, mode, rank, slots, starts_at, now=None):
     if not isinstance(owner_id, str) or not owner_id.isdecimal() or not 1 <= len(owner_id) <= 20:
         raise CommunityError("Gültige Discord-Mitglieds-ID erforderlich.")
+    now = now or utcnow()
     fields = validate_listing(game, mode, rank, slots, starts_at, now)
     def operation():
         rows = store.guild(guild).setdefault("matchmaking", [])
-        if sum(r["owner_id"] == owner_id and r["status"] == "open" for r in rows) >= 3:
-            raise CommunityError("Maximal drei offene Gesuche pro Mitglied.")
+        # Expired drafts remain in history, but cannot reserve an open slot forever.
+        if sum(r["owner_id"] == owner_id and r["status"] == "open"
+               and parse_time(r["starts_at"]) >= now for r in rows) >= 3:
+            raise CommunityError("Maximal drei offene, noch nicht abgelaufene Gesuche pro Mitglied.")
         row = dict(id=uuid.uuid4().hex, owner_id=owner_id, members=[], status="open", created_at=utcnow().isoformat(), **fields)
         rows.append(row)
         return row
@@ -88,3 +91,4 @@ def active_listings(store, guild, now=None):
     now = now or utcnow()
     return [copy.deepcopy(r) for r in store.guild(guild).setdefault("matchmaking", [])
             if r["status"] in ("open", "full") and parse_time(r["starts_at"]) >= now]
+
