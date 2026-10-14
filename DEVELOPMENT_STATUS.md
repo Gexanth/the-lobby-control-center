@@ -18,7 +18,15 @@ No live Discord mutation, paid request or scheduled-event creation used in tests
 Validation: 125 tests passed locally with Qt and zero skips, including two new
 UI regressions for saved/unsaved distinction, save/reset, server isolation, literal
 text, read-only preview, navigation and stable refresh. Real offline screenshot
-contains clearly labeled sample data. Publication verification pending.
+contains clearly labeled sample data. Syntax compilation and update build passed.
+Publication verified 2026-10-14: workflow 38571866706 / job 115878865453 passed
+125 tests with zero skips. Latest v0.4.18 targets
+1dd62f5214d7b0fbc07fb9c45bf0982e668c5891. Published release.json (288 bytes)
+and ZIP (127674 bytes) downloaded; archive integrity, changed application sources
+and manifest SHA256 verified:
+401bcf8503d10a9ee75b36c8d4fb436f5d5b30709db7a474cbeeb759daa36506.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.18
+Installation on the owner's Windows PC was not tested in this run.
 Next: improve visibility of planned publication timing and prerequisites.
 
 ## 0.4.17 — Spielvorschläge direkt im Lobby-Night-Planer prüfen
