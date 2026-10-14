@@ -81,6 +81,9 @@ class CommunityPage(QWidget):
         b=QPushButton('Weiter zur Abstimmung');b.clicked.connect(lambda:self.night_steps.setCurrentIndex(1));n.addWidget(b);n.addStretch()
         delivery_page=QWidget();n=QVBoxLayout(delivery_page);self.night_steps.addTab(delivery_page,'2 · Abstimmung und Versand')
         self.night_delivery_selection=QLabel('Zuerst unter Plan & Erinnerung einen gespeicherten Termin auswählen.');self.night_delivery_selection.setWordWrap(True);self.night_delivery_selection.setTextFormat(Qt.PlainText);n.addWidget(self.night_delivery_selection)
+        self.night_delivery_preview=QTextEdit();self.night_delivery_preview.setReadOnly(True);self.night_delivery_preview.setMaximumHeight(145);self.night_delivery_preview.setAccessibleName('Gespeicherte Spielvorschläge für die Abstimmung');n.addWidget(self.night_delivery_preview)
+        self.night_delivery_hint=QLabel();self.night_delivery_hint.setWordWrap(True);self.night_delivery_hint.setTextFormat(Qt.PlainText);n.addWidget(self.night_delivery_hint)
+        b=QPushButton('Zurück zum Plan und den Vorschlägen');b.clicked.connect(lambda:self.night_steps.setCurrentIndex(0));n.addWidget(b)
         self.poll_readiness=QLabel();self.poll_readiness.setWordWrap(True);self.poll_readiness.setTextFormat(Qt.PlainText);n.addWidget(self.poll_readiness)
         n.addWidget(QLabel('Discord-Abstimmung: Zielkanal und Laufzeit'))
         poll_row=QHBoxLayout();self.poll_channel=QComboBox();poll_row.addWidget(self.poll_channel,2)
@@ -370,6 +373,7 @@ class CommunityPage(QWidget):
             _,due,options=night_fields(self.night_title.text(),self.night_time.text(),self.options.toPlainText())
             self.night_readiness.setText(f'Bereit zum lokalen Speichern · {len(options)} eindeutige Vorschläge · Termin {due.astimezone().strftime("%d.%m.%Y %H:%M")}. Vor Discord-Veröffentlichung folgt eine weitere Vorschau.')
         except (CommunityError,ValueError) as exc:self.night_readiness.setText('Entwurf noch nicht bereit: '+str(exc))
+        if hasattr(self,'night_delivery_preview'):self.refresh_poll_readiness()
     def new_night(self):
         self.night_edit_id=None;self.night_edit_guild=None;self.nights.setCurrentRow(-1)
         self.night_title.setText('Lobby Night');self.night_time.setText((datetime.now()+timedelta(days=1)).strftime('%Y-%m-%d 20:00'));self.options.clear()
@@ -405,6 +409,11 @@ class CommunityPage(QWidget):
         if hasattr(self,'night_delivery_selection'):
             selected=self.chosen_night()
             self.night_delivery_selection.setText('Ausgewählt: '+selected['title']+' · '+selected['when']+' · '+selected['status'] if selected else 'Zuerst unter Plan & Erinnerung einen gespeicherten Termin auswählen.')
+            if hasattr(self,'night_delivery_preview'):
+                preview='\n'.join(f'{i+1}. {text}' for i,text in enumerate(selected['options'])) if selected else 'Noch keine gespeicherten Spielvorschläge ausgewählt.'
+                if self.night_delivery_preview.toPlainText()!=preview:self.night_delivery_preview.setPlainText(preview)
+                changed=bool(selected and review_night_options(self.options.toPlainText())['options']!=selected['options'])
+                self.night_delivery_hint.setText('Die Spielvorschläge im Eingabefeld weichen vom gespeicherten Plan ab. Oben steht der gespeicherte Stand für die Abstimmung. Änderungen zuerst unter Plan und Erinnerung speichern.' if changed else 'Die Abstimmung verwendet diese gespeicherten Vorschläge in der gezeigten Reihenfolge. Vor dem Versand folgt die vollständige Veröffentlichungsvorschau.' if selected else 'Unter Plan und Erinnerung einen Termin speichern und auswählen.')
         if not hasattr(self,'poll_readiness') or not hasattr(self,'poll_multi'):return
         n=self.chosen_night()
         if not n:self.poll_readiness.setText('Veröffentlichung: zuerst einen gespeicherten Plan auswählen.');return

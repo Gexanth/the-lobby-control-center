@@ -337,6 +337,36 @@ class CommunityAccessTests(unittest.TestCase):
         c.select_night();self.assertFalse(c.night_save.isEnabled());self.assertFalse(c.options.isEnabled())
         c.new_night();self.assertTrue(c.options.isEnabled());self.assertEqual(c.options.toPlainText(),'');self.assertIn('Neuer lokaler Entwurf',c.night_review.text())
 
+    def test_voting_preview_uses_saved_options_and_warns_about_unsaved_edits(self):
+        from datetime import datetime,timedelta
+        from PySide6.QtWidgets import QPushButton
+        c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        c.night_time.setText((datetime.now()+timedelta(days=2)).strftime('%Y-%m-%d 20:00'))
+        c.options.setPlainText('Minecraft\n<b>Valorant</b>');c.save_night()
+        self.assertEqual(c.night_delivery_preview.toPlainText(),'1. Minecraft\n2. <b>Valorant</b>')
+        self.assertTrue(c.night_delivery_preview.isReadOnly())
+        c.options.setPlainText('Gartic Phone\nMinecraft')
+        self.assertIn('weichen vom gespeicherten Plan ab',c.night_delivery_hint.text())
+        self.assertIn('<b>Valorant</b>',c.night_delivery_preview.toPlainText())
+        c.night_steps.setCurrentIndex(1)
+        back=next(b for b in c.night_steps.widget(1).findChildren(QPushButton) if b.text()=='Zurück zum Plan und den Vorschlägen')
+        back.click();self.assertEqual(c.night_steps.currentIndex(),0)
+        self.assertEqual(c.options.toPlainText(),'Gartic Phone\nMinecraft')
+        c.save_night();self.assertEqual(c.night_delivery_preview.toPlainText(),'1. Gartic Phone\n2. Minecraft')
+        self.assertNotIn('weichen',c.night_delivery_hint.text())
+        c.new_night();self.assertIn('Noch keine',c.night_delivery_preview.toPlainText())
+
+    def test_voting_preview_clears_on_server_switch_and_preserves_selection_on_refresh(self):
+        from datetime import datetime,timedelta
+        c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        c.night_time.setText((datetime.now()+timedelta(days=2)).strftime('%Y-%m-%d 20:00'))
+        c.options.setPlainText('Game A\nGame B');c.save_night()
+        c.night_delivery_preview.selectAll();selected=c.night_delivery_preview.textCursor().selectedText()
+        c.refresh_poll_readiness();self.assertEqual(c.night_delivery_preview.textCursor().selectedText(),selected)
+        c.offline_server.setCurrentText('930828728966217729');c.open_offline()
+        self.assertNotIn('Game A',c.night_delivery_preview.toPlainText())
+        self.assertIn('Noch keine',c.night_delivery_preview.toPlainText())
+
     def test_due_dispatch_waits_for_connection_and_sends_once(self):
         from datetime import datetime,timezone,timedelta
         from lobby import Lobby

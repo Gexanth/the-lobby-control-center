@@ -1,3 +1,26 @@
+## 0.4.18 — Gespeicherte Vorschläge im Abstimmungsschritt sichtbar
+
+2026-10-14: verified all local source blobs against fresh main
+bfba4eb3b0d25fd134a0a5803102e60471191fec before editing.
+Roadmap stage: Lobby Night automation. The voting step now has a bounded,
+read-only numbered preview of the selected saved proposals. An explicit warning
+distinguishes unsaved proposal edits from the stored options used for voting.
+A back button returns to planning without discarding the edit. Preview clears on
+new draft/server switch and preserves text selection during unchanged refreshes.
+
+Assumption: this is a saved-plan preview, not an import from Discord or a new
+publication action. Existing publication confirmation, scheduling and delivery
+guards remain unchanged. Manual input remains local; no new permissions,
+dependencies, storage migration, credentials or starter changes. Publishing still
+requires a connected app and View Channel, Send Messages and Create Polls.
+No live Discord mutation, paid request or scheduled-event creation used in tests.
+
+Validation: 125 tests passed locally with Qt and zero skips, including two new
+UI regressions for saved/unsaved distinction, save/reset, server isolation, literal
+text, read-only preview, navigation and stable refresh. Real offline screenshot
+contains clearly labeled sample data. Publication verification pending.
+Next: improve visibility of planned publication timing and prerequisites.
+
 ## 0.4.17 — Spielvorschläge direkt im Lobby-Night-Planer prüfen
 
 2026-10-13: refreshed main at c0c52a41b464a6564798302eceadbd2e248eba64.

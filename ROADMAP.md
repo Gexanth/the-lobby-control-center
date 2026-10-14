@@ -12,6 +12,13 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.18 — Lobby Night automation: the voting step now shows saved proposals in
+order and flags unsaved proposal differences, with direct navigation back to the
+plan. Read-only preview is bounded, clears on server/draft changes and retains
+selection on unchanged refresh. No new data source or automatic publication;
+existing Discord poll permissions and explicit review remain required. Validated
+with 125 tests including Qt. Next: clearer planned-publication timing/prerequisites.
+
 0.4.17 — Lobby Night automation: manually collected proposals are reviewed while
 typing, with total/unique counts and original line references for duplicates or
 overlength entries. UI and save validation share rules; no silent removal or reorder.
