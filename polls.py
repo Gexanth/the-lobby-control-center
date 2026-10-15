@@ -18,6 +18,12 @@ def poll_spec(guild,night,channel,hours,multi):
     nonce=hashlib.sha256((guild+night['id']).encode()).hexdigest()[:24]
     return {'guild':guild,'night_id':night['id'],'channel':channel,'payload':{'content':'Geplanter Termin: '+parse_time(night['when']).astimezone().strftime('%d.%m.%Y %H:%M')+'\nEigene Spielvorschläge sind willkommen.','poll':{'question':{'text':question},'answers':[{'poll_media':{'text':x.strip()}} for x in options],'duration':hours,'allow_multiselect':multi,'layout_type':1},'allowed_mentions':{'parse':[]},'nonce':nonce,'enforce_nonce':True}}
 
+def schedule_time(night,send_at,now=None):
+    """Shared deadline validation for the local preview and durable schedule."""
+    now=now or datetime.now(timezone.utc);due=parse_time(send_at)
+    if not now<due<parse_time(night['when']):raise CommunityError('Veröffentlichung muss in der Zukunft und vor der Lobby Night liegen.')
+    return due
+
 def schedule_state(night,now=None):
     """Classify a stored schedule using the same deadlines as the dispatcher."""
     d=night.get('poll_delivery',{})
@@ -44,9 +50,8 @@ class PollJournal:
         if current!=spec:raise CommunityError('Planung hat sich seit der Vorschau geändert. Erneut prüfen.')
         self.change(spec['guild'],spec['night_id'],{'state':'sending','channel':spec['channel'],'spec':copy.deepcopy(spec),'attempted_at':datetime.now(timezone.utc).isoformat()})
     def schedule(self,spec,send_at):
-        now=datetime.now(timezone.utc);due=parse_time(send_at)
         night=self.night(spec['guild'],spec['night_id'])
-        if not now<due<parse_time(night['when']):raise CommunityError('Veröffentlichung muss in der Zukunft und vor der Lobby Night liegen.')
+        due=schedule_time(night,send_at)
         current=poll_spec(spec['guild'],night,spec['channel'],spec['payload']['poll']['duration'],spec['payload']['poll']['allow_multiselect'])
         if current!=spec:raise CommunityError('Planung seit der Vorschau geändert.')
         self.change(spec['guild'],spec['night_id'],{'state':'scheduled','channel':spec['channel'],'spec':copy.deepcopy(spec),'send_at':due.isoformat()})

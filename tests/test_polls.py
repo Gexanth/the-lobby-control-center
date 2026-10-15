@@ -7,6 +7,14 @@ from polls import poll_spec,PollJournal,send_poll,read_poll_results
 from lobby import Lobby
 GUILD='930828728966217728';CHANNEL='123456789012345678';MESSAGE='123456789012345679'
 class PollTests(unittest.TestCase):
+    def test_schedule_time_boundaries_and_timezone(self):
+        from polls import schedule_time
+        now=datetime(2026,10,15,12,tzinfo=timezone.utc)
+        night={'when':(now+timedelta(hours=2)).isoformat()}
+        self.assertEqual(schedule_time(night,'2026-10-15T15:00:00+02:00',now),now+timedelta(hours=1))
+        for value in ('bad',now.isoformat(),night['when'],(now-timedelta(seconds=1)).isoformat()):
+            with self.subTest(value=value),self.assertRaises(CommunityError):schedule_time(night,value,now)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.store=CommunityStore(self.root)
         self.n=self.store.add_night(GUILD,'Lobby Night',(datetime.now(timezone.utc)+timedelta(days=1)).isoformat(),'Game A\nGame B')

@@ -337,6 +337,25 @@ class CommunityAccessTests(unittest.TestCase):
         c.select_night();self.assertFalse(c.night_save.isEnabled());self.assertFalse(c.options.isEnabled())
         c.new_night();self.assertTrue(c.options.isEnabled());self.assertEqual(c.options.toPlainText(),'');self.assertIn('Neuer lokaler Entwurf',c.night_review.text())
 
+    def test_schedule_preview_is_live_local_and_does_not_schedule(self):
+        import copy
+        from datetime import datetime,timedelta
+        c=self.w.community;c.offline_server.setCurrentText('930828728966217728');c.open_offline()
+        c.night_time.setText((datetime.now()+timedelta(days=2)).strftime('%Y-%m-%d 20:00'))
+        c.options.setPlainText('Game A\nGame B');c.save_night()
+        before=copy.deepcopy(c.store.data)
+        c.poll_send_time.setText('bad');self.assertIn('noch nicht bereit',c.poll_time_hint.text())
+        c.poll_send_time.setText((datetime.now()+timedelta(hours=1)).isoformat())
+        self.assertIn('Zeitpunkt gültig',c.poll_time_hint.text())
+        self.assertIn('Noch nicht eingeplant',c.poll_time_hint.text())
+        self.assertIn('App laufen',c.poll_time_hint.text())
+        self.assertEqual(c.store.data,before)
+        c.poll_send_time.setText(c.chosen_night()['when']);self.assertIn('noch nicht bereit',c.poll_time_hint.text())
+        c.chosen_night()['poll_delivery']={'state':'scheduled','send_at':(datetime.now()+timedelta(hours=1)).isoformat()};c.refresh_poll_readiness()
+        self.assertIn('ändert keinen bestehenden Zeitplan',c.poll_time_hint.text())
+        c.chosen_night()['poll_delivery']={'state':'ready'};c.new_night()
+        self.assertIn('zuerst einen gespeicherten Plan',c.poll_time_hint.text())
+
     def test_voting_preview_uses_saved_options_and_warns_about_unsaved_edits(self):
         from datetime import datetime,timedelta
         from PySide6.QtWidgets import QPushButton

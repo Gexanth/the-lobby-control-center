@@ -12,6 +12,13 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.19 — Lobby Night automation: live publication-time feedback uses the same
+strict future/before-night validation as the saved schedule. Shows local PC time
+and UTC offset; valid input is explicitly not yet scheduled. Existing delivery
+states are distinguished and never changed by typing. Connected running app and
+existing poll permissions remain prerequisites. 127 tests passed with Qt. Next:
+advisory warning if voting would end after the planned Lobby Night starts.
+
 0.4.18 — Lobby Night automation: the voting step now shows saved proposals in
 order and flags unsaved proposal differences, with direct navigation back to the
 plan. Read-only preview is bounded, clears on server/draft changes and retains

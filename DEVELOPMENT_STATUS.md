@@ -1,3 +1,24 @@
+## 0.4.19 — Veröffentlichungszeit vor dem Einplanen prüfen
+
+2026-10-15: verified source blobs against fresh main
+1aaa7633b8119922499d8882c90922d532b426de. Roadmap stage: Lobby Night automation.
+The publication-time field now explains invalid input and deadlines as the user
+types, showing valid times in local PC time with UTC offset. Preview and journal
+share schedule_time validation: strictly after now and before the saved night.
+Valid input explicitly remains unscheduled until the publication preview is
+confirmed. Existing delivery states are distinguished from editable input; typing
+does not change a stored schedule. The app must run and be connected at send time.
+
+Assumption: this improves the existing local scheduler, not hosted scheduling or
+Discord event creation. No live Discord operations or paid services used in tests.
+No dependency, starter, credential, storage migration or permission change. Existing
+poll publication still needs View Channel, Send Messages and Create Polls.
+Validation: 127 tests passed locally with Qt and zero skips. New tests cover exact
+deadline boundaries, UTC offsets, invalid text, reactive UI and no storage writes.
+Real offline screenshot uses labeled example data. Publication verification pending.
+Next: warn when the chosen poll duration would finish after the Lobby Night starts,
+without silently changing the user's duration or schedule.
+
 ## 0.4.18 — Gespeicherte Vorschläge im Abstimmungsschritt sichtbar
 
 2026-10-14: verified all local source blobs against fresh main

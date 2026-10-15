@@ -1,7 +1,7 @@
 from datetime import datetime,timedelta,timezone
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
-from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state
+from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state,schedule_time
 from copy import deepcopy
 from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
@@ -94,6 +94,8 @@ class CommunityPage(QWidget):
         self.poll_channel.currentIndexChanged.connect(self.refresh_poll_readiness);self.poll_hours.currentIndexChanged.connect(self.refresh_poll_readiness);self.poll_multi.toggled.connect(self.refresh_poll_readiness)
         self.poll_publish=QPushButton('Abstimmung prüfen und veröffentlichen');self.poll_publish.clicked.connect(lambda:self.review_poll(False));n.addWidget(self.poll_publish)
         self.poll_send_time=QLineEdit();self.poll_send_time.setPlaceholderText('Veröffentlichungszeit: JJJJ-MM-TT HH:MM (lokale PC-Zeit)');n.addWidget(self.poll_send_time)
+        self.poll_time_hint=QLabel();self.poll_time_hint.setWordWrap(True);self.poll_time_hint.setTextFormat(Qt.PlainText);n.addWidget(self.poll_time_hint)
+        self.poll_send_time.textChanged.connect(self.refresh_poll_readiness)
         self.poll_schedule=QPushButton('Veröffentlichung nach Vorschau planen');self.poll_schedule.clicked.connect(lambda:self.review_poll(True));n.addWidget(self.poll_schedule)
         self.poll_unschedule=QPushButton('Geplante Veröffentlichung stoppen');self.poll_unschedule.clicked.connect(self.stop_scheduled_poll);n.addWidget(self.poll_unschedule)
         self.poll_status=QLabel('Noch keine Abstimmung veröffentlicht.');self.poll_status.setWordWrap(True);self.poll_status.setTextFormat(Qt.PlainText);n.addWidget(self.poll_status)
@@ -406,6 +408,18 @@ class CommunityPage(QWidget):
             self.show_poll_status();self.status.setText('Lokale Erinnerung gespeichert. Keine Discord-Nachricht geplant.')
 
     def refresh_poll_readiness(self,*_):
+        if hasattr(self,'poll_time_hint'):
+            night=self.chosen_night()
+            if not night:self.poll_time_hint.setText('Zeitplanung: zuerst einen gespeicherten Plan auswählen.')
+            elif night.get('poll_delivery',{}).get('state') in ('scheduled','sending','uncertain','sent'):
+                self.poll_time_hint.setText('Gespeicherten Versandstatus unten beachten. Dieses Eingabefeld ändert keinen bestehenden Zeitplan.')
+            elif night.get('status')!='geplant':self.poll_time_hint.setText('Zeitplanung: dieser Termin ist abgesagt.')
+            elif not self.poll_send_time.text().strip():self.poll_time_hint.setText('Veröffentlichungszeit in lokaler PC-Zeit eingeben. Sie muss vor der Lobby Night liegen.')
+            else:
+                try:
+                    due=schedule_time(night,self.poll_send_time.text().strip())
+                    self.poll_time_hint.setText('Zeitpunkt gültig: '+due.astimezone().strftime('%d.%m.%Y %H:%M %z')+' (lokale PC-Zeit). Noch nicht eingeplant: erst Vorschau bestätigen. Zum Versand muss die App laufen und mit diesem Server verbunden sein.')
+                except (CommunityError,ValueError) as exc:self.poll_time_hint.setText('Zeitplanung noch nicht bereit: '+str(exc))
         if hasattr(self,'night_delivery_selection'):
             selected=self.chosen_night()
             self.night_delivery_selection.setText('Ausgewählt: '+selected['title']+' · '+selected['when']+' · '+selected['status'] if selected else 'Zuerst unter Plan & Erinnerung einen gespeicherten Termin auswählen.')
