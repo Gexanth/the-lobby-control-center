@@ -15,7 +15,14 @@ No dependency, starter, credential, storage migration or permission change. Exis
 poll publication still needs View Channel, Send Messages and Create Polls.
 Validation: 127 tests passed locally with Qt and zero skips. New tests cover exact
 deadline boundaries, UTC offsets, invalid text, reactive UI and no storage writes.
-Real offline screenshot uses labeled example data. Publication verification pending.
+Real offline screenshot uses labeled example data. Compile and update build passed.
+Publication verified 2026-10-15: workflow 38740077931 / job 116439159117 passed
+127 tests with zero skips. Latest v0.4.19 targets
+37a2d5f506ad066d464f69d4c61f82598df0cbd5. Published release.json (288 bytes)
+and ZIP (128674 bytes) downloaded; ZIP integrity, changed sources and manifest
+SHA256 verified: 98059dd8f6268b2d5651c5c594845319c3b9bbf7539196ea9730b09c76c52c53.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.19
+Installation on the owner's Windows PC was not tested in this run.
 Next: warn when the chosen poll duration would finish after the Lobby Night starts,
 without silently changing the user's duration or schedule.
 
