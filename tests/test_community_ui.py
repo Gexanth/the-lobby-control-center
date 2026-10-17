@@ -322,6 +322,30 @@ class CommunityAccessTests(unittest.TestCase):
         self.assertFalse(c.poll_publish.isEnabled());self.assertTrue(c.poll_unschedule.isEnabled())
         c.stop_scheduled_poll();self.assertEqual(c.chosen_night()['poll_delivery']['state'],'ready')
 
+    def test_poll_confirmation_warns_for_late_end_without_changing_plan(self):
+        import copy
+        from datetime import datetime,timezone,timedelta
+        from lobby import Lobby
+        from PySide6.QtWidgets import QMessageBox
+        c=self.w.community;guild='930828728966217728';channel='123456789012345678'
+        def forbidden(*args):raise AssertionError('No live requests')
+        self.w.discord_client=Lobby('test',guild,writes=True,transport=forbidden)
+        self.w.show_discord({'id':guild,'name':'test','channels':[{'id':channel,'name':'vote','type':0}],'roles':[]})
+        c.store.add_night(guild,'Night',(datetime.now(timezone.utc)+timedelta(hours=4)).isoformat(),'Game A\nGame B');c.refresh();c.nights.setCurrentRow(0)
+        c.poll_send_time.setText((datetime.now(timezone.utc)+timedelta(hours=1)).isoformat())
+        before=copy.deepcopy(c.store.data)
+        for scheduled in (False,True):
+            with patch.object(QMessageBox,'question',return_value=QMessageBox.No) as question:
+                c.review_poll(scheduled)
+                self.assertIn('ACHTUNG',question.call_args.args[2])
+                self.assertIn('Rechnerisches Abstimmungsende',question.call_args.args[2])
+            self.assertEqual(c.store.data,before)
+            self.assertEqual(c.poll_hours.currentData(),24)
+        c.poll_hours.setCurrentIndex(c.poll_hours.findData(1))
+        with patch.object(QMessageBox,'question',return_value=QMessageBox.No) as question:
+            c.review_poll(True);self.assertIn('vor Beginn',question.call_args.args[2])
+            self.assertNotIn('ACHTUNG',question.call_args.args[2])
+
     def test_lobby_night_readiness_edit_and_locked_delivery(self):
         from datetime import datetime,timedelta
         c=self.w.community;guild='930828728966217728'

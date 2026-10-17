@@ -7,6 +7,18 @@ from polls import poll_spec,PollJournal,send_poll,read_poll_results
 from lobby import Lobby
 GUILD='930828728966217728';CHANNEL='123456789012345678';MESSAGE='123456789012345679'
 class PollTests(unittest.TestCase):
+    def test_poll_timing_notice_boundaries_offsets_and_no_mutation(self):
+        from polls import poll_timing_notice
+        start=datetime(2026,10,17,12,tzinfo=timezone.utc)
+        night={'when':'2026-10-17T16:00:00+02:00'};before=copy.deepcopy(night)
+        self.assertIn('vor Beginn',poll_timing_notice(night,1,start))
+        self.assertIn('genau zum Beginn',poll_timing_notice(night,2,start))
+        self.assertIn('ACHTUNG',poll_timing_notice(night,3,start))
+        self.assertIn('keine bestätigte Discord-Endzeit',poll_timing_notice(night,3,start))
+        self.assertEqual(night,before)
+        for hours in (True,0,769,'24'):
+            with self.assertRaises(CommunityError):poll_timing_notice(night,hours,start)
+
     def test_schedule_time_boundaries_and_timezone(self):
         from polls import schedule_time
         now=datetime(2026,10,15,12,tzinfo=timezone.utc)

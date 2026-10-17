@@ -1,3 +1,27 @@
+## 0.4.20 — Laufzeitwarnung vor Abstimmungsfreigabe
+
+2026-10-17: verified source blobs against fresh main
+8fb77b321c3ae68d767c8494f90fb3208f661d87. Roadmap stage: Lobby Night automation.
+The final confirmation now shows the calculated poll end for both immediate and
+scheduled publication. It warns if voting would finish after the saved night starts,
+and identifies an exact match as having no evaluation buffer. Earlier ends are
+also stated. The estimate includes local UTC offset and explicitly is not a
+confirmed Discord expiry: delivery delays shift the actual end.
+
+Assumption: advisory only, not an automatic duration change or prohibition.
+Existing confirmation defaults to No; no schedule, option or duration is changed
+by the warning. Scheduled confirmation now reuses the existing schedule_time
+validator. No live Discord mutation, scheduled event, paid service, new permission,
+dependency, credential, storage migration or starter change. Existing connected-app
+and poll-permission requirements remain unchanged.
+
+Validation: 129 tests passed locally with Qt and zero skips. New deterministic
+coverage checks before/equal/after boundaries, UTC offsets, invalid durations,
+both confirmation paths, cancellation without storage/network effects and shorter
+duration feedback. Real dialog screenshot uses labeled offline test data.
+Publication verification pending. Next: improve saved-schedule overview, including
+which channel and duration were actually confirmed rather than current input values.
+
 ## 0.4.19 — Veröffentlichungszeit vor dem Einplanen prüfen
 
 2026-10-15: verified source blobs against fresh main

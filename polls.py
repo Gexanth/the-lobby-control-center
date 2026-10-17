@@ -1,6 +1,6 @@
 """Native Discord poll payload validation and durable delivery journal."""
 import copy,hashlib
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from community import CommunityError,parse_time
 from lobby import snowflake
 
@@ -17,6 +17,17 @@ def poll_spec(guild,night,channel,hours,multi):
     if len({x.strip().casefold() for x in options})!=len(options):raise CommunityError('Doppelte Antwortmöglichkeiten entfernen.')
     nonce=hashlib.sha256((guild+night['id']).encode()).hexdigest()[:24]
     return {'guild':guild,'night_id':night['id'],'channel':channel,'payload':{'content':'Geplanter Termin: '+parse_time(night['when']).astimezone().strftime('%d.%m.%Y %H:%M')+'\nEigene Spielvorschläge sind willkommen.','poll':{'question':{'text':question},'answers':[{'poll_media':{'text':x.strip()}} for x in options],'duration':hours,'allow_multiselect':multi,'layout_type':1},'allowed_mentions':{'parse':[]},'nonce':nonce,'enforce_nonce':True}}
+
+def poll_timing_notice(night,hours,start):
+    """Advisory only: nominal end based on proposed publication, not Discord expiry."""
+    if type(hours) is not int or not 1<=hours<=768:raise CommunityError('Abstimmungsdauer: 1–768 Stunden.')
+    end=start.astimezone(timezone.utc)+timedelta(hours=hours)
+    due=parse_time(night['when'])
+    text='Rechnerisches Abstimmungsende: '+end.astimezone().strftime('%d.%m.%Y %H:%M %z')+' (lokale PC-Zeit).'
+    if end>due:text+=' ACHTUNG: Die Abstimmung endet erst nach Beginn der Lobby Night. Kürzere Laufzeit oder frühere Veröffentlichung prüfen.'
+    elif end==due:text+=' Die Abstimmung endet genau zum Beginn der Lobby Night; kein Zeitpuffer für die Auswertung.'
+    else:text+=' Die Abstimmung endet vor Beginn der Lobby Night.'
+    return text+' Grundlage ist der vorgesehene Versand. Verzögerter Versand verschiebt das tatsächliche Ende; dies ist keine bestätigte Discord-Endzeit.'
 
 def schedule_time(night,send_at,now=None):
     """Shared deadline validation for the local preview and durable schedule."""

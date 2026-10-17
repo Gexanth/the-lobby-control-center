@@ -12,6 +12,12 @@ Order authorized by the owner: Activity System → Lobby Night automation → Cr
 
 ## Next priorities
 
+0.4.20 — Lobby Night automation: final publication/scheduling confirmation shows
+calculated voting end and warns about ending after the night starts; exact matches
+are marked as lacking an evaluation buffer. Advisory only, unchanged duration and
+schedule, explicit delayed-delivery caveat, no live event creation. 129 tests passed
+including Qt. Next: show confirmed target channel/duration in saved-schedule overview.
+
 0.4.19 — Lobby Night automation: live publication-time feedback uses the same
 strict future/before-night validation as the saved schedule. Shows local PC time
 and UTC offset; valid input is explicitly not yet scheduled. Existing delivery

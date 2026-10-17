@@ -1,7 +1,7 @@
 from datetime import datetime,timedelta,timezone
 from PySide6.QtCore import QTimer,Qt
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QLabel,QTabWidget,QComboBox,QPushButton,QLineEdit,QTextEdit,QListWidget,QMessageBox,QCheckBox,QTableWidget,QTableWidgetItem,QHeaderView,QHBoxLayout,QFrame
-from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state,schedule_time
+from polls import poll_spec,PollJournal,send_poll,read_poll_results,schedule_state,schedule_time,poll_timing_notice
 from copy import deepcopy
 from stream_ui import StreamPanel
 from creator_roles import binding,save_binding,delivery,checked_plan,assign_checked,creator_next_step
@@ -490,11 +490,10 @@ class CommunityPage(QWidget):
         text='Server: '+self.guild_id+'\nKanal: '+self.poll_channel.currentText()+'\n'+spec['payload']['content']+'\n\n'+spec['payload']['poll']['question']['text']+'\n'+'\n'.join(n['options'])+'\nLaufzeit: '+str(spec['payload']['poll']['duration'])+' Stunden\nMehrfachauswahl: '+('Ja' if self.poll_multi.isChecked() else 'Nein')+'\n\nJetzt diese echte Discord-Abstimmung veröffentlichen? Keine Rollen- oder Mitglieder-Pings.'
         if scheduled:
             try:
-                due=parse_time(self.poll_send_time.text().strip())
-                from datetime import timezone
-                if not datetime.now(timezone.utc)<due<parse_time(n['when']):raise CommunityError('Veröffentlichung muss in der Zukunft und vor der Lobby Night liegen.')
+                due=schedule_time(n,self.poll_send_time.text().strip())
             except (CommunityError,ValueError) as exc:self.status.setText(str(exc));return
             text=text.replace('Jetzt diese echte Discord-Abstimmung veröffentlichen?', 'Diese Abstimmung automatisch am '+due.astimezone().strftime('%d.%m.%Y %H:%M')+' veröffentlichen? App muss laufen und verbunden sein.')
+        text+='\n\n'+poll_timing_notice(n,spec['payload']['poll']['duration'],due if scheduled else datetime.now(timezone.utc))
         if QMessageBox.question(self,'Discord-Abstimmung veröffentlichen',text,QMessageBox.Yes|QMessageBox.No,QMessageBox.No)!=QMessageBox.Yes:return
         journal=PollJournal(self.store)
         if scheduled:
