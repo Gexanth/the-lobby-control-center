@@ -19,7 +19,15 @@ Validation: 129 tests passed locally with Qt and zero skips. New deterministic
 coverage checks before/equal/after boundaries, UTC offsets, invalid durations,
 both confirmation paths, cancellation without storage/network effects and shorter
 duration feedback. Real dialog screenshot uses labeled offline test data.
-Publication verification pending. Next: improve saved-schedule overview, including
+Compile and update build passed. Publication verified 2026-10-17:
+workflow 39036775445 / job 117408124757 passed 129 tests, zero skips.
+Latest v0.4.20 targets 47ff0b27643df9bc14fdda50a3f39d3a8fa18770.
+Downloaded release.json (288 bytes) and ZIP (129723 bytes); archive integrity,
+changed sources and manifest SHA256 verified:
+75b5d25db43bc26e108460560c198a35051ba40dad08027748e8ca6387f1592f.
+https://github.com/Gexanth/the-lobby-control-center/releases/tag/v0.4.20
+Installation on the owner's Windows PC was not tested in this run.
+Next: improve saved-schedule overview, including
 which channel and duration were actually confirmed rather than current input values.
 
 ## 0.4.19 — Veröffentlichungszeit vor dem Einplanen prüfen
